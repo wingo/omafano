@@ -1,55 +1,63 @@
-This package includes two separate applications. In the www dir, there is the
-PHP frontend app, the convert dir includes a simple (too simple i guess) script
-that converts your wildcard of images into three subdirs in the current
-directory. You can easily create and upload all images using:
+Original
+========
 
-   mkdir temp
-   cd $_
-   /path/to/imgconv *.png *.gif *.{jpeg,jpg}
-   scp -rp ./web-gallery me@my_server:public_html/galleries/gallery_name
+Original is a web gallery designed with tags in mind. There are two
+parts: one that synchronizes all or part of your f-spot photo collection
+to the web, and one that runs on your web server to show your photos.
 
-and that's it.
-
-Tuomas Kuosmannen (tigert@tigert.com) has created a Nautilus script to create
-"original" galleries (check the REQUIREMENTS file). Just copy the
-convert/contrib/webgallery.pl file to ~/.gnome2/nautilus-scripts and make sure it's got
-the execute bit set.
-
-# UPDATE
-
-   Apart from using netpbm package (http://sourceforge.net/projects/netpbm/) for
-   scaling images, the new webgallery-zenity.pl script uses Larry Ewing's
-   gdk-pixbuf-based scaler. See REQUIREMENTS for details.
-
-   Latest versions of the tools can be found at
-   http://jimmac.musichall.cz/original.php3
-
-Various Notes
-=============
-
-Gallery Dates
--------------
-By default, original uses the directory timestamp to figure out the date of the
-gallery. If I need to tweak it, i use `touch -d`. However some folks requested
-a more convenient (is it?) way, using a "$gallery/date.txt" file. This
-functionality has been replaced by the mew meta info file - info.txt:
-
-  Info.txt format
-	---------------
-
-	The file is a simple text of "key|value" pairs on separate lines. The '|'
-	separator is used, since you may want to use '=' and ':' as you're free to
-	use html markup in the file. Make sure you use a utf8 capable editor.
-
-	Some useful keys:
-	-----------------
-
-	date - can be used to override the timestamp of the directory
-	name - you can override the dir name if you prefer not using utf8 filenames
-	description - _short_ dexcription. Will be show in the index page.
-	author - Useful if the photographer isn't you.
+Note that this is a fork of Jakub Steiner's Original -- see the About
+section for more details.
 
 
+Installation on your web server
+-------------------------------
+
+Installation is pretty easy -- just copy the entire www/ directory to
+your web server where you want your gallery to be. Note that copying
+www/* won't work, as there is an .htaccess file there.
+
+You will need mod_python, pysqlite, and the python imaging library (PIL)
+installed on your web server. The Debian 3.1 packages I have installed
+are libapache2-mod-python2.3, python2.3-sqlite, and python2.3-imaging.
+
+
+Uploading your photos
+---------------------
+
+The part that runs on your computer is one script,
+original-sync-from-f-spot, which you can find in the sync/ directory.
+
+The script will, by default, upload all photos from your f-spot
+collection that have tags attached, but not photos with the Hidden tag.
+This behavior can be changed of course -- pass `--help' to the script on
+the command line for documentation on its many parameters.
+
+original-sync-from-f-spot needs python 2.4 to run, with the pysqlite and
+python-gnome2-desktop packages installed.
+
+The first time you run the script, it will require you to specify an
+output URL. This URL can be anything that gnome-vfs can write to, for
+example sftp://example.com/var/www/mysite/photos/. After the first run
+it will remember the URL.
+
+
+About
+-----
+
+I wrote these scripts because I wanted to experiment with tags as a way
+of presenting photos on the web. I also wanted to manage all of my
+photos with Larry Ewing's excellent f-spot instead of some clunky web
+interface. The other desire was to have someone else worry about the
+exact CSS aesthetics, which meant reusing code from an existing project.
+
+I chose Jakub Steiner's Original
+(http://jimmac.musichall.cz/original.php3) as the model, due to its
+aesthetics. My version of Original just takes the f-spot database, adds
+a table to keep track of which photos have been uploaded, and uploads
+the whole database to the web. The server side generates HTML that
+structurally matches what Jakub did with his version. In that manner we
+can actually share the same style files.
 
 --
-Jakub 'Jimmac' Steiner <jimmac@linux.com>
+Andy Wingo <wingo@pobox.com>
+15 September 2006

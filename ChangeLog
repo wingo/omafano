@@ -1,0 +1,11 @@
+2006-09-15  Andy Wingo  <wingo@pobox.com>
+
+	* REQUIREMENTS: Removed, as it was folded into the README.
+
+	* www/.htaccess: Moved here from htaccess.
+
+	* README, NEWS, TODO, AUTHORS: Updated.
+
+	* Initial import of python/f-spot rewrite of Jakub Steiner's
+	Original into bzr.
+
