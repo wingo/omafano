@@ -1,4 +1,5 @@
 #!/usr/bin/env python2.4
+# -*- python -*-
 
 from __future__ import division
 
@@ -8,7 +9,7 @@ import os.path
 import gc
 import optparse
 import tempfile
-import sqlite
+from pysqlite2 import dbapi2
 
 import gnomevfs
 import gobject
@@ -21,7 +22,7 @@ jhead_checked = False
 jhead_available = True
 
 options = None
-cxn = sqlite.connect(FSPOT_DB)
+cxn = dbapi2.connect(FSPOT_DB)
 output_uri = None
 
 def dbg(format, *args):
@@ -78,7 +79,7 @@ def ensure_output_uri_set():
             err('This appears to be the first time you run this program.\n'
                 'You will need to use the --output-uri option to set the\n'
                 'location of where you want your remote gallery to be.')
-        cur.execute('update meta set data=%s where name=%s',
+        cur.execute('update meta set data=? where name=?',
                     (options.output_uri, 'original_output_uri'))
         cxn.commit()
     else:
@@ -161,6 +162,10 @@ def init(args):
                       default="replace",
                       help=("what to do if the remote file already exists "
                             "-- one of 'abort', 'replace', or 'skip'"))
+    parser.add_option('', '--force-db-copy',
+                      action="store_true", dest="force_db_copy",
+                      help=("copy the database, even if there are no new "
+                            "photos"))
 
     # fixme: add tagging constraints
 
@@ -190,7 +195,7 @@ def get_photos_to_export():
     cur = cxn.cursor()
 
     def tag_name_to_id(tag):
-        cur.execute('select id from tags where name=%s', tag)
+        cur.execute('select id from tags where name=?', (tag,))
         try:
             id, = cur.fetchone()
             return id
@@ -260,7 +265,7 @@ def scale_photo(photo_id, tmpdir):
         return square_bounds(bounds, options.scaled_size * 0.2)
 
     cur = cxn.cursor()
-    cur.execute('select directory_path, name from photos where id=%d',
+    cur.execute('select directory_path, name from photos where id=?',
                 (photo_id,))
     dirname, basename = cur.fetchone()
     path = os.path.join(dirname, basename)
@@ -328,7 +333,7 @@ def mkdirp(uri, relpath):
 
 def copy_photo(photo_id, tmpdir, scaled):
     cur = cxn.cursor()
-    cur.execute('select directory_path from photos where id=%d',
+    cur.execute('select directory_path from photos where id=?',
                 (photo_id,))
     relpath, = cur.fetchone()
     if relpath.startswith(options.photos_path):
@@ -353,7 +358,7 @@ def copy_photo(photo_id, tmpdir, scaled):
         cur.execute("insert into original_exports (id, normal_relpath,"
                     "                              thumb_relpath,"
                     "                              mq_relpath, hq_relpath)"
-                    "       values (%d, %s, %s, %s, %s)",
+                    "       values (?, ?, ?, ?, ?)",
                     (photo_id,) +
                     tuple([x[1] and os.path.join(relpath,
                                                  os.path.basename(x[1]))
@@ -404,7 +409,7 @@ def copy_database(tmpdir):
 def main(args):
     init(args)
     to_export = get_photos_to_export()
-    if not to_export:
+    if not to_export and not options.force_db_copy:
         return
     tmpdir = tempfile.mkdtemp()
     try:

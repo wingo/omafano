@@ -1,3 +1,15 @@
+2007-11-08  Andy Wingo  <wingo@pobox.com>
+
+	* www/index.py: Use pysqlite2, as below. Also it seems that we
+	need to use a unicode-capable quoter now -- steal one from django.
+	Redo the tag cloud algorithm to cope with larger tag numbers.
+
+	* sync/original-sync-from-f-spot: Use pysqlite2, which wraps
+	sqlite3, as f-spot has upgraded now. This means that all sql
+	statements need to be changed.
+	(init): Add a --force-db-copy argument.
+	(main): Respect --force-db-copy.
+
 2006-09-15  Andy Wingo  <wingo@pobox.com>
 
 	* REQUIREMENTS: Removed, as it was folded into the README.

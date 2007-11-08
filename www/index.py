@@ -4,11 +4,26 @@ import os
 import os.path
 import time
 import urllib
-import sqlite
+from pysqlite2 import dbapi2
 import Image
 import EXIF
 
-q = urllib.quote_plus
+# from Django -- thanks
+def smart_str(s, encoding='utf-8', errors='strict'):
+    # Returns a bytestring version of 's', encoded as specified in 'encoding'.
+    if not isinstance(s, basestring):
+        try:
+            return str(s)
+        except UnicodeEncodeError:
+            return unicode(s).encode(encoding, errors)
+    elif isinstance(s, unicode):
+        return s.encode(encoding, errors)
+    elif s and encoding != 'utf-8':
+        return s.decode('utf-8', errors).encode(encoding, errors)
+    else:
+        return s
+def q(s):
+    return urllib.quote_plus(smart_str(s))
 
 BASE_URI=None
 PHOTOS_RELPATH=''
@@ -18,10 +33,10 @@ def relurl(url):
 
 def html2str(expr):
     if not isinstance(expr, list):
-        return str(expr)
+        return smart_str(expr)
     operator = expr[0]
     args = [html2str(arg) for arg in expr[1:]]
-    return str(operator(args))
+    return smart_str(operator(args))
 
 def _trans(k):
     table = {'klass': 'class'}
@@ -49,7 +64,7 @@ html = html()
 def recent_tags():
     sql = ('select distinct t.name from photo_tags pt, tags t, photos p'
            '       where t.id=pt.tag_id and p.id=pt.photo_id'
-           '       and p.time > %d')
+           '       and p.time > ?')
     cur = cxn.cursor()
     cur.execute(sql, (int(time.time() - 60 * 60 * 24 * 14),))
     out = [html.p(id='recenttags')]
@@ -64,7 +79,7 @@ def recent_tags():
     return out
            
 def make_tag_cloud(*containing_tags):
-    sql = ('select t.name, count(pt.photo_id)'
+    sql = ('select count(pt.photo_id), t.name'
            '       from photo_tags pt, tags t'
            '       where t.id=pt.tag_id')
     if containing_tags:
@@ -73,27 +88,34 @@ def make_tag_cloud(*containing_tags):
                 '      tags t, photo_tags pt'
                 '      where t.id=pt.tag_id and (0')
         for tag in containing_tags:
-           sql += ' or t.name=%s'
+           sql += ' or t.name=?'
         sql += '))'
         for tag in containing_tags:
-           sql += ' and t.name!=%s'
-    sql += ' group by t.name order by t.name'
+           sql += ' and t.name!=?'
+    sql += ' group by t.name'
     cur = cxn.cursor()
     cur.execute(sql, containing_tags + containing_tags)
     out = [html.div(id='tagcloud')]
-    words = cur.fetchall()
-    if not words:
-        return out
-    most = max([x[1] for x in words])
+    counts = cur.fetchall()
+    if not counts:
+        return
+
+    counts.sort(reverse=1)
+    most = counts[0][0]
     thresh = min(int(most * 0.1), 3)
-    for word, count in words:
+    nwords = len(counts)
+    words = []
+    for i, (count, word) in enumerate(counts):
         if count < thresh:
-            continue
+            break
+        size = (count - thresh)/(most - thresh)*1.6 + (nwords - i)/float(nwords)*0.6 + 0.5
+        words.append((word, size))
+    words.sort()
+    for word, size in words:
         # out.append(' ') would be necessary if we didn't \n
         out.append([html.a(href=(relurl('index.py/tags/' + q(word))),
                            style=('font-size: %fem; text-decoration: none;'
-                                  % ((count - thresh)/(most - thresh)
-                                     * 2.0 + 0.8))),
+                                  % (size,))),
                     word])
     return out
            
@@ -102,9 +124,9 @@ def display_random_thumbs(n, since=None):
     sql = 'select oe.id, oe.thumb_relpath from original_exports oe'
     args = []
     if since:
-        sql += ', photos p where oe.id=p.id and p.time > %d'
+        sql += ', photos p where oe.id=p.id and p.time > ?'
         args.append(since)
-    sql += ' order by random() limit %d'
+    sql += ' order by random() limit ?'
     args.append(n)
     cur = cxn.cursor()
     cur.execute(sql, args)
@@ -118,7 +140,7 @@ def display_thumbs_for_tag(tag):
     sql = ('select oe.id, oe.thumb_relpath from original_exports oe, '
            '       tags t, photo_tags pt'
            '       where t.id=pt.tag_id and oe.id=pt.photo_id'
-           '       and t.name=%s')
+           '       and t.name=?')
     cur = cxn.cursor()
     cur.execute(sql, (tag,))
     for photo_id, thumb_relpath in cur.fetchall():
@@ -130,7 +152,7 @@ def display_thumbs_for_tag(tag):
 def display_tags_for_photo(photo):
     out = [html.div(id='tagsforphoto', style="text-align: center; margin-top:24px;")]
     sql = ('select t.name from tags t, photo_tags pt '
-           '       where t.id=pt.tag_id and pt.photo_id=%d')
+           '       where t.id=pt.tag_id and pt.photo_id=?')
     cur = cxn.cursor()
     cur.execute(sql, (photo,))
     for tag, in cur.fetchall():
@@ -151,7 +173,7 @@ def make_navigation_thumb(photo, tag, direction):
     sql = ('select oe.id, oe.thumb_relpath from original_exports oe, '
            '       tags t, photo_tags pt'
            '       where t.id=pt.tag_id and oe.id=pt.photo_id'
-           '       and t.name=%%s and oe.id %s %%d '
+           '       and t.name=? and oe.id %s ?'
            '       order by oe.id %s limit 1'
            % (prev and '<' or '>', prev and 'desc' or 'asc'))
     cur = cxn.cursor()
@@ -184,20 +206,20 @@ def display_exif_info(relpath):
         if k in data:
             if len(out) > 1:
                 out.append(' | ')
-            out.append([html.span(title=v), str(data[k])])
+            out.append([html.span(title=v), smart_str(data[k])])
     f.close()
     return out
 
 def display_photo(photo, tag):
     sql = ('select normal_relpath, mq_relpath, hq_relpath '
-           'from original_exports where id=%d')
+           'from original_exports where id=?')
     cur = cxn.cursor()
     cur.execute(sql, (photo,))
     
     try:
         relpath, mq, hq = cur.fetchone()
     except TypeError:
-        return [html.p, "No such photo:", str(photo)]
+        return [html.p, "No such photo:", smart_str(photo)]
     data = get_photo_data(relpath)
     out = [html.div,
            [html.div(id="image", style=("height: %dpx" % data['height'])),
@@ -330,7 +352,7 @@ def handler(req):
     global cxn
 
     thisdir = os.path.dirname(__file__)
-    cxn = sqlite.connect(os.path.join(thisdir, PHOTOS_RELPATH, 'db/photos.db'))
+    cxn = dbapi2.connect(os.path.join(thisdir, PHOTOS_RELPATH, 'db/photos.db'))
 
     if req.method != 'GET':
         req.allow_methods(('GET',), True)
