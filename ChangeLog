@@ -1,3 +1,8 @@
+2007-11-09  Andy Wingo  <wingo@pobox.com>
+
+	* sync/original-sync-from-f-spot (FSPOT_DB_VERSION): Mark that we
+	expect version 5 of the database.
+
 2007-11-08  Andy Wingo  <wingo@pobox.com>
 
 	* www/index.py: Use pysqlite2, as below. Also it seems that we

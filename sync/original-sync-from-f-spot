@@ -17,6 +17,7 @@ import gtk
 from gtk import gdk
 
 FSPOT_DB = os.path.expanduser("~/.gnome2/f-spot/photos.db")
+FSPOT_DB_VERSION = 5
 VERSION = 0.1
 jhead_checked = False
 jhead_available = True
@@ -47,6 +48,12 @@ def err(format, *args):
 
 def ensure_original_in_fspot():
     cur = cxn.cursor()
+    cur.execute("select data from meta where name='F-Spot Database Version'")
+    res = cur.fetchall()
+    if not res or int(res[0][0]) != FSPOT_DB_VERSION:
+        raise SystemExit('unexpected f-spot database version: %s != %s'
+                         % (res, FSPOT_DB_VERSION))
+
     cur.execute("select data from meta where name='original_db_version'")
     res = cur.fetchall()
     if not res or int(res[0][0]) < 1:
