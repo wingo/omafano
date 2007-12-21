@@ -17,7 +17,7 @@ import gtk
 from gtk import gdk
 
 FSPOT_DB = os.path.expanduser("~/.gnome2/f-spot/photos.db")
-FSPOT_DB_VERSION = 5
+FSPOT_DB_VERSION = 9
 VERSION = 0.1
 jhead_checked = False
 jhead_available = True
@@ -272,11 +272,11 @@ def scale_photo(photo_id, tmpdir):
         return square_bounds(bounds, options.scaled_size * 0.2)
 
     cur = cxn.cursor()
-    cur.execute('select directory_path, name from photos where id=?',
-                (photo_id,))
-    dirname, basename = cur.fetchone()
-    path = os.path.join(dirname, basename)
-    inuri = gnomevfs.URI(path)
+    cur.execute('select uri from photos where id=?', (photo_id,))
+    uri, = cur.fetchone()
+    inuri = gnomevfs.URI(uri)
+    path = gnomevfs.get_local_path_from_uri(uri)
+    basename = os.path.basename(path)
     
     info('Preparing to scale %s', path)
     pixbuf = gdk.pixbuf_new_from_file(path)
@@ -298,7 +298,6 @@ def scale_photo(photo_id, tmpdir):
             outfile = os.path.join(tmpdir, '.'.join(parts))
             outuri = gnomevfs.URI(outfile)
 
-            info("Copying %s", outfile)
             if bounds == (w, h):
                 # the identity transformation
                 dbg('simple copy for %s %s scale', basename, kind)
@@ -340,13 +339,11 @@ def mkdirp(uri, relpath):
 
 def copy_photo(photo_id, tmpdir, scaled):
     cur = cxn.cursor()
-    cur.execute('select directory_path from photos where id=?',
+    cur.execute('select uri from photos where id=?',
                 (photo_id,))
-    relpath, = cur.fetchone()
-    if relpath.startswith(options.photos_path):
-        relpath = relpath[len(options.photos_path):]
-    if relpath[0] == '/':
-        relpath = relpath[1:]
+    uri, = cur.fetchone()
+    assert uri.startswith('file://')
+    relpath = os.path.sep.join(uri.split(os.path.sep)[-4:-1])
     mkdirp(output_uri, relpath)
     reluri = output_uri.append_path(relpath)
 
@@ -356,6 +353,7 @@ def copy_photo(photo_id, tmpdir, scaled):
             if v:
                 inuri = gnomevfs.URI(v)
                 outuri = reluri.append_path(os.path.basename(v))
+                info("Writing %s", outuri)
                 gnomevfs.xfer_uri(inuri, outuri,
                                   gnomevfs.XFER_DEFAULT,
                                   gnomevfs.XFER_ERROR_MODE_ABORT,

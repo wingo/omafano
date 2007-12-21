@@ -1,3 +1,10 @@
+2007-12-21  Andy Wingo  <wingo@pobox.com>
+
+	* sync/original-sync-from-f-spot (FSPOT_DB_VERSION): Update to
+	require version 9 of the db.
+	(scale_photo, copy_photo): Update for schema changes in version
+	5->9.
+
 2007-11-09  Andy Wingo  <wingo@pobox.com>
 
 	* sync/original-sync-from-f-spot (FSPOT_DB_VERSION): Mark that we
