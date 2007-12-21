@@ -8,6 +8,9 @@
 	(display_tags_for_photo, make_navigation_thumb, display_photo)
 	(page, index, show_tag, show_photo, show_roll, roll_index.nav):
 	Refactor to use helpers, some other minor fixen.
+	(nested_a_head): Make kwargs default to {}.
+	(make_navigation_thumb): If there's no next or prev link, link
+	back to the tag or roll that we came from.
 
 2007-12-21  Andy Wingo  <wingo@pobox.com>
 

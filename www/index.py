@@ -68,7 +68,7 @@ def q(s):
     return urllib.quote_plus(smart_str(s))
 def relurl(url):
     return BASE_URI + url
-def nested_a_head(url, kw):
+def nested_a_head(url, kw={}):
     return html.a(href=relurl('index.py/' + url), **kw)
 def photo_a_head(id, tag=None, **kw):
     return nested_a_head('photos/%d%s' % (id, tag and '?tag=%s'%q(tag) or ''),
@@ -252,14 +252,17 @@ def make_navigation_thumb(photo, tag, direction, roll_id):
     cur = cxn.cursor()
     cur.execute(sql, args)
     res = cur.fetchone()
+    head = html.div(klass=(prev and 'prevthumb' or 'nextthumb'))
     if res:
-        return [html.div(klass=(prev and 'prevthumb' or 'nextthumb')),
-                thumb_link_elt(res[0], tag and q(tag), res[1],
-                               [html.br],
-                               (prev and 'Previous' or 'Next')
-                               + (tag and ' by tag' or ''))]
+        return [head, thumb_link_elt(res[0], tag and q(tag), res[1],
+                                     [html.br],
+                                     (prev and 'Previous' or 'Next')
+                                     + (tag and ' in '+tag or ''))]
+    elif tag:
+        return [head, [nested_a_head('tags/' + q(tag)),
+                       [html.br], 'Back to ', tag]]
     else:
-        return ''
+        return [head, [roll_a_head(roll_id), 'Back to roll']]
 
 def display_exif_info(relpath):
     f = open(os.path.join(os.path.dirname(__file__),
