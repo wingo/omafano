@@ -8,7 +8,16 @@ from pysqlite2 import dbapi2
 import Image
 import EXIF
 
-# from Django -- thanks
+########################################################################
+## Configuration
+
+BASE_URI=None
+PHOTOS_RELPATH=''
+
+########################################################################
+## Utils
+
+# from Django -- thanks. to be honest i have no idea why this is necessary
 def smart_str(s, encoding='utf-8', errors='strict'):
     # Returns a bytestring version of 's', encoded as specified in 'encoding'.
     if not isinstance(s, basestring):
@@ -22,15 +31,6 @@ def smart_str(s, encoding='utf-8', errors='strict'):
         return s.decode('utf-8', errors).encode(encoding, errors)
     else:
         return s
-def q(s):
-    return urllib.quote_plus(smart_str(s))
-
-BASE_URI=None
-PHOTOS_RELPATH=''
-
-def relurl(url):
-    return BASE_URI + url
-
 def html2str(expr):
     if not isinstance(expr, list):
         return smart_str(expr)
@@ -38,12 +38,11 @@ def html2str(expr):
     args = [html2str(arg) for arg in expr[1:]]
     return smart_str(operator(args))
 
-def _trans(k):
-    table = {'klass': 'class'}
-    return table.get(k, k)
-
 class html:
     def __getattr__(self, attr):
+        def _trans(k):
+            table = {'klass': 'class'}
+            return table.get(k, k)
         def tag(*targs, **kw):
             def render(args):
                 return ('<%s%s>%s</%s>'
@@ -61,27 +60,82 @@ class html:
         return tag
 html = html()
 
-def recent_tags():
+def q(s):
+    return urllib.quote_plus(smart_str(s))
+def relurl(url):
+    return BASE_URI + url
+
+def show_roll(roll_id):
+    cur = cxn.cursor()
+    sql = 'select time from rolls where id=? limit 1'
+    cur.execute(sql, (roll_id,))
+    res = cur.fetchall()
+    if not res:
+        return ''
+    else:
+        ((t,),) = res
+    return page([html.div(style="text-align: center;"),
+                 [html.h1(klass="title"),
+                  [html.a(href=relurl('')),
+                   'Photo Gallery']],
+                 
+                 [html.p,
+                  [html.a(href=relurl('index.py/rolls/?after=%d'%t),
+                          klass='nextlink'),
+                   'newer rolls'],
+                  time.strftime(' %d %b %y ', time.gmtime(t)),
+                  [html.a(href=relurl('index.py/rolls/?before=%d'%t),
+                          klass='prevlink'),
+                   'older rolls']],
+
+                 display_thumbs_for_roll(roll_id),
+                 make_tag_cloud(roll_id=roll_id)])
+
+def roll_summary(roll_id, roll_time):
+    out = [html.div(klass='roll')]
+    tagpara = [html.p,
+               [html.a(href=(relurl('index.py/rolls/%d' % roll_id)),
+                       klass='roll-title'),
+                time.strftime('%d %b %y', time.gmtime(roll_time)),
+                [html.br]]]
     sql = ('select distinct t.name from photo_tags pt, tags t, photos p'
            '       where t.id=pt.tag_id and p.id=pt.photo_id'
-           '       and p.time > ?')
+           '       and p.roll_id = ?')
     cur = cxn.cursor()
-    cur.execute(sql, (int(time.time() - 60 * 60 * 24 * 14),))
-    out = [html.p(id='recenttags')]
+    cur.execute(sql, (roll_id,))
     words = cur.fetchall()
-    if not words:
-        return out
-    out.append('recent photos in ')
     for word, in words:
-        out.append([html.a(href=(relurl('index.py/tags/' + q(word))),
-                           style='text-decoration: none'),
-                    word])
+        # fixme: link to only roll
+        tagpara.append([html.a(href=(relurl('index.py/tags/' + q(word))),
+                               style='text-decoration: none'),
+                        word])
+
+    out.append(tagpara)
+    out.extend(display_random_thumbs(5, roll_id=roll_id)[1:])
     return out
+    
+def latest_roll():
+    cur = cxn.cursor()
+    sql = 'select id, time from rolls order by time desc limit 1'
+    cur.execute(sql)
+    res = cur.fetchall()
+    if not res:
+        return ''
+    else:
+        ((roll_id, time),) = res
+        return roll_summary(roll_id, time)
            
-def make_tag_cloud(*containing_tags):
+def make_tag_cloud(*containing_tags, **kwargs):
+    roll_id = kwargs.get('roll_id', None)
     sql = ('select count(pt.photo_id), t.name'
-           '       from photo_tags pt, tags t'
-           '       where t.id=pt.tag_id')
+           '       from photo_tags pt, tags t')
+    args = []
+    if roll_id is not None:
+        sql += ', photos p'
+    sql += ' where t.id=pt.tag_id'
+    if roll_id is not None:
+        sql += ' and pt.photo_id=p.id and p.roll_id=?'
+        args.append(roll_id)
     if containing_tags:
         sql += (' and pt.photo_id in'
                 '     (select distinct pt.photo_id from'
@@ -92,9 +146,10 @@ def make_tag_cloud(*containing_tags):
         sql += '))'
         for tag in containing_tags:
            sql += ' and t.name!=?'
+        args.extend(containing_tags + containing_tags)
     sql += ' group by t.name'
     cur = cxn.cursor()
-    cur.execute(sql, containing_tags + containing_tags)
+    cur.execute(sql, args)
     out = [html.div(id='tagcloud')]
     counts = cur.fetchall()
     if not counts:
@@ -119,13 +174,18 @@ def make_tag_cloud(*containing_tags):
                     word])
     return out
            
-def display_random_thumbs(n, since=None):
+def display_random_thumbs(n, since=None, roll_id=None):
     out = [html.div(id='randomthumbs')]
     sql = 'select oe.id, oe.thumb_relpath from original_exports oe'
     args = []
     if since:
         sql += ', photos p where oe.id=p.id and p.time > ?'
         args.append(since)
+    if roll_id:
+        if not since:
+            sql += ', photos p where oe.id=p.id'
+        sql += ' and p.roll_id = ?'
+        args.append(roll_id)
     sql += ' order by random() limit ?'
     args.append(n)
     cur = cxn.cursor()
@@ -149,6 +209,19 @@ def display_thumbs_for_tag(tag):
                     [html.img(src=relurl(PHOTOS_RELPATH + '/' + thumb_relpath))]])
     return out
            
+def display_thumbs_for_roll(roll_id):
+    out = [html.div(id='thumbsforroll')]
+    sql = ('select oe.id, oe.thumb_relpath from original_exports oe, '
+           '       photos p'
+           '       where oe.id=p.id and p.roll_id = ?')
+    cur = cxn.cursor()
+    cur.execute(sql, (roll_id,))
+    for photo_id, thumb_relpath in cur.fetchall():
+        out.append([html.a(href=(relurl('index.py/photos/%d' %
+                                        (photo_id,)))),
+                    [html.img(src=relurl(PHOTOS_RELPATH + '/' + thumb_relpath))]])
+    return out
+           
 def display_tags_for_photo(photo):
     out = [html.div(id='tagsforphoto', style="text-align: center; margin-top:24px;")]
     sql = ('select t.name from tags t, photo_tags pt '
@@ -166,27 +239,35 @@ def get_photo_data(path):
     ret = {'width': i.size[0], 'height': i.size[1]}
     return ret
 
-def make_navigation_thumb(photo, tag, direction):
+def make_navigation_thumb(photo, tag, direction, roll_id):
     prev = direction == 'previous'
-    if not tag:
-        return ''
-    sql = ('select oe.id, oe.thumb_relpath from original_exports oe, '
-           '       tags t, photo_tags pt'
-           '       where t.id=pt.tag_id and oe.id=pt.photo_id'
-           '       and t.name=? and oe.id %s ?'
-           '       order by oe.id %s limit 1'
-           % (prev and '<' or '>', prev and 'desc' or 'asc'))
+    if tag:
+        sql = ('select oe.id, oe.thumb_relpath from original_exports oe, '
+               '       tags t, photo_tags pt'
+               '       where t.id=pt.tag_id and oe.id=pt.photo_id'
+               '       and t.name=?')
+        args = (tag,)
+        suffix = '?tag=' + q(tag)
+    else:
+        sql = ('select oe.id, oe.thumb_relpath from original_exports oe,'
+               '       photos p where oe.id=p.id and p.roll_id=?')
+        args = (roll_id,)
+        suffix = ''
+    sql += (' and oe.id %s ? order by oe.id %s limit 1'
+            % (prev and '<' or '>', prev and 'desc' or 'asc'))
+    args += (int(photo),)
     cur = cxn.cursor()
-    cur.execute(sql, (tag, int(photo)))
+    cur.execute(sql, args)
     res = cur.fetchone()
     if res:
         return [html.div(klass=(prev and 'prevthumb' or 'nextthumb')),
-                [html.a(href=relurl('index.py/photos/%d?tag=%s'
-                                    % (res[0], q(tag)))),
+                [html.a(href=relurl('index.py/photos/%d%s'
+                                    % (res[0], suffix))),
                  [html.img(alt="Previous",
                            src=relurl(PHOTOS_RELPATH + '/' + res[1]))],
                  [html.br],
-                 prev and 'Previous' or 'Next']]
+                 (prev and 'Previous' or 'Next')
+                 + (tag and ' by tag' or ' in roll')]]
     else:
         return ''
 
@@ -211,13 +292,13 @@ def display_exif_info(relpath):
     return out
 
 def display_photo(photo, tag):
-    sql = ('select normal_relpath, mq_relpath, hq_relpath '
-           'from original_exports where id=?')
+    sql = ('select normal_relpath, mq_relpath, hq_relpath, roll_id '
+           'from original_exports oe, photos p where oe.id=p.id and oe.id=?')
     cur = cxn.cursor()
     cur.execute(sql, (photo,))
     
     try:
-        relpath, mq, hq = cur.fetchone()
+        relpath, mq, hq, roll_id = cur.fetchone()
     except TypeError:
         return [html.p, "No such photo:", smart_str(photo)]
     data = get_photo_data(relpath)
@@ -227,8 +308,8 @@ def display_photo(photo, tag):
                       width=str(data['width']),
                       height=str(data['height']),
                       src=relurl(PHOTOS_RELPATH + '/' + relpath))],
-            make_navigation_thumb(photo, tag, 'previous'),
-            make_navigation_thumb(photo, tag, 'next')],
+            make_navigation_thumb(photo, tag, 'previous', roll_id),
+            make_navigation_thumb(photo, tag, 'next', roll_id)],
            display_tags_for_photo(photo),
            display_exif_info(relpath),
            [html.div(id="mqhq"),
@@ -236,7 +317,14 @@ def display_photo(photo, tag):
                     'MQ'] or '',
             hq and [html.a(href=relurl(PHOTOS_RELPATH + '/' + hq)),
                     'HQ'] or '',]]
-    return out
+    if tag:
+        hierarchy = [html.a(href=relurl('index.py/tags/'+q(tag))),
+                     tag]
+    else:
+        hierarchy = [html.a(href=relurl('index.py/rolls/%d'%roll_id)),
+                     'roll %d' % roll_id]
+        
+    return hierarchy, out
 
 def page(body):
     return [html.html,
@@ -310,9 +398,10 @@ def index():
                  
                  make_tag_cloud(),
                  
-                 display_random_thumbs(6, since=(time.time() - 60*60*24*14)),
+                 latest_roll(),
 
-                 recent_tags()])
+                 [html.a(href=relurl('index.py/rolls/')),
+                  "older rolls..."]])
 
 def show_tag(tag):
     return page([html.div,
@@ -331,22 +420,55 @@ def show_tag(tag):
                   make_tag_cloud(tag)]])
 
 def show_photo(photo, tag):
+    hierarchy, content = display_photo(photo, tag)
     return page([html.div,
                  [html.h1(klass="title"),
                   [html.a(href=relurl('')),
                    'Photo Gallery']],
                  [html.div(klass="navigation"),
                   [html.a(href=relurl('')), 'Photo Gallery Index'],
-                  tag and [html.span,
-                           '&gt;',
-                           [html.a(href=relurl('index.py/tags/'+q(tag))),
-                            tag]] or '',
-                  [html.span,
-                   '&gt;',
-                   "Photo %d" % photo]],
-                 
-                 display_photo(photo, tag)])
+                  [html.span, '&gt;', hierarchy],
+                  [html.span, '&gt;', "Photo %d" % photo]],
+                 content])
 
+def roll_index(before, after, count=7):
+    def nav():
+        ret = []
+        min_time = (after and after + 1) or (res and res[-1][0])
+        max_time = (before and before - 1) or (res and res[0][0])
+        if min_time:
+            ret.append([html.a(href=relurl('index.py/rolls/?before=%d'%(min_time,))),
+                        'older rolls'])
+        if max_time:
+            ret.append([html.a(href=relurl('index.py/rolls/?after=%d'%(max_time,))),
+                        'newer rolls'])
+        if ret:
+            return [html.div] + ret
+        else:
+            return []
+
+    sql = 'select time, id from rolls'
+    args = ()
+    if before is not None:
+        sql += ' where time < ? order by time desc'
+        args += (before,)
+    elif after is not None:
+        sql += ' where time > ? order by time asc'
+        args += (after,)
+    else:
+        sql += ' order by time desc'
+    sql += ' limit ?'
+    args += (count,)
+    cur = cxn.cursor()
+    cur.execute(sql, args)
+    res = cur.fetchall()
+    if before is None and after is not None:
+        res.reverse()
+    summaries = [roll_summary(roll_id, time) for time, roll_id in res]
+    if not summaries:
+        summaries = [html.p, 'No rolls found'] 
+    return page([html.div(id='rolls')] + summaries + nav())
+    
 def handler(req):
     global BASE_URI
     global cxn
@@ -394,6 +516,22 @@ def handler(req):
                 out = show_tag(tag)
             else:
                 out = index()
+        elif path_info.startswith('/rolls/'):
+            def tryint(x):
+                try:
+                    return int(x)
+                except:
+                    return None
+            if path_info == '/rolls/':
+                out = roll_index(tryint(args.get('before', None)),
+                                 tryint(args.get('after', None)))
+            else:
+                try:
+                    roll_id = int(path_info[7:])
+                except:
+                    out = path_info + ' ??? '
+                else:
+                    out = show_roll(roll_id)
         else:
             out = path_info + ' ? '
     else:

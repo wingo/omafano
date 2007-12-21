@@ -1,5 +1,30 @@
 2007-12-21  Andy Wingo  <wingo@pobox.com>
 
+	* www/index.py (BASE_URI, PHOTOS_RELPATH)
+	(html.__getattr__._trans, q, relurl): Move around some code, the
+	beginnings of a refactor.
+	(show_roll): New function, shows a page for a roll.
+	(roll_summary): New function, prints out a short summary of a roll
+	with photos and tags.
+	(latest_roll): New function, returns the roll summary for the
+	latest roll.
+	(make_tag_cloud): New kwarg, 'roll_id' -- if specified makes a
+	cloud just with that roll_id.
+	(display_random_thumbs): New kwarg roll_id, allows to show random
+	thumbs for a roll.
+	(display_tags_for_roll): Like display_tags_for_tag, but for a
+	roll.
+	(make_navigation_thumb): New required arg, roll_id; if tag is not
+	given, next/prev are calculated based on other photos in the roll.
+	(display_photo): Allow calculating next/prev based on roll. Return
+	the "hierarchy" info, something to place in the top nav bar. Will
+	be reworked in the future.
+	(index): Display the latest roll too. Will be reworked soon.
+	(show_photo): Adapt for display_photo changes.
+	(roll_index): New page, displays a limited list of roll summaries,
+	with links to see older/newer rolls.
+	(handler): Add roll foo, wheee
+
 	* sync/original-sync-from-f-spot (FSPOT_DB_VERSION): Update to
 	require version 9 of the db.
 	(scale_photo, copy_photo): Update for schema changes in version
