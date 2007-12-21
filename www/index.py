@@ -31,13 +31,14 @@ def smart_str(s, encoding='utf-8', errors='strict'):
         return s.decode('utf-8', errors).encode(encoding, errors)
     else:
         return s
+
+# my own ghetto sxml foo
 def html2str(expr):
     if not isinstance(expr, list):
         return smart_str(expr)
     operator = expr[0]
     args = [html2str(arg) for arg in expr[1:]]
     return smart_str(operator(args))
-
 class html:
     def __getattr__(self, attr):
         def _trans(k):
@@ -60,42 +61,45 @@ class html:
         return tag
 html = html()
 
+########################################################################
+# URLs
+
 def q(s):
     return urllib.quote_plus(smart_str(s))
 def relurl(url):
     return BASE_URI + url
+def nested_a_head(url, kw):
+    return html.a(href=relurl('index.py/' + url), **kw)
+def photo_a_head(id, tag=None, **kw):
+    return nested_a_head('photos/%d%s' % (id, tag and '?tag=%s'%q(tag) or ''),
+                         kw)
+def photourl(relpath):
+    return relurl(PHOTOS_RELPATH + '/' + relpath)
+def jpg_a_head(id, tag=None, **kw):
+    return nested_a_head('photos/%d%s' % (id, tag and '?tag=%s'%q(tag) or ''),
+                         kw)
+def roll_a_head(id, **kw):
+    return nested_a_head('rolls/%d' % (id,), kw)
+def rolls_a_head(before=None, after=None, **kw):
+    return nested_a_head('rolls/' + (before and '?before=%d'%before or '')
+                         + (after and '?after=%d'%after or ''), kw)
 
-def show_roll(roll_id):
-    cur = cxn.cursor()
-    sql = 'select time from rolls where id=? limit 1'
-    cur.execute(sql, (roll_id,))
-    res = cur.fetchall()
-    if not res:
-        return ''
-    else:
-        ((t,),) = res
-    return page([html.div(style="text-align: center;"),
-                 [html.h1(klass="title"),
-                  [html.a(href=relurl('')),
-                   'Photo Gallery']],
-                 
-                 [html.p,
-                  [html.a(href=relurl('index.py/rolls/?after=%d'%t),
-                          klass='nextlink'),
-                   'newer rolls'],
-                  time.strftime(' %d %b %y ', time.gmtime(t)),
-                  [html.a(href=relurl('index.py/rolls/?before=%d'%t),
-                          klass='prevlink'),
-                   'older rolls']],
+def top_link_elt(text='Photo Gallery', **kw):
+    return [html.a(href=BASE_URI, **kw), text]
+def tag_link_elt(tag=None, **kw):
+    return [nested_a_head('tags/' + (tag and q(tag) or ''), kw), tag]
+def thumb_link_elt(photo_id, tag, thumb_relpath, *extra_content):
+    return [photo_a_head(photo_id, tag=tag),
+            [html.img(src=photourl(thumb_relpath))] + list(extra_content)]
 
-                 display_thumbs_for_roll(roll_id),
-                 make_tag_cloud(roll_id=roll_id)])
+
+########################################################################
+## Parts of pages
 
 def roll_summary(roll_id, roll_time):
     out = [html.div(klass='roll')]
     tagpara = [html.p,
-               [html.a(href=(relurl('index.py/rolls/%d' % roll_id)),
-                       klass='roll-title'),
+               [roll_a_head(roll_id, klass='roll-title'),
                 time.strftime('%d %b %y', time.gmtime(roll_time)),
                 [html.br]]]
     sql = ('select distinct t.name from photo_tags pt, tags t, photos p'
@@ -106,9 +110,7 @@ def roll_summary(roll_id, roll_time):
     words = cur.fetchall()
     for word, in words:
         # fixme: link to only roll
-        tagpara.append([html.a(href=(relurl('index.py/tags/' + q(word))),
-                               style='text-decoration: none'),
-                        word])
+        tagpara.append(tag_link_elt(word, style='text-decoration: none'))
 
     out.append(tagpara)
     out.extend(display_random_thumbs(5, roll_id=roll_id)[1:])
@@ -168,10 +170,9 @@ def make_tag_cloud(*containing_tags, **kwargs):
     words.sort()
     for word, size in words:
         # out.append(' ') would be necessary if we didn't \n
-        out.append([html.a(href=(relurl('index.py/tags/' + q(word))),
-                           style=('font-size: %fem; text-decoration: none;'
-                                  % (size,))),
-                    word])
+        out.append(tag_link_elt(word,
+                                style=('font-size: %fem; text-decoration: none;'
+                                       % (size,))))
     return out
            
 def display_random_thumbs(n, since=None, roll_id=None):
@@ -191,8 +192,7 @@ def display_random_thumbs(n, since=None, roll_id=None):
     cur = cxn.cursor()
     cur.execute(sql, args)
     for photo_id, thumb_relpath in cur.fetchall():
-        out.append([html.a(href=(relurl('index.py/photos/%d' % photo_id))),
-                    [html.img(src=relurl(PHOTOS_RELPATH + '/' + thumb_relpath))]])
+        out.append(thumb_link_elt(photo_id, None, thumb_relpath))
     return out
            
 def display_thumbs_for_tag(tag):
@@ -204,9 +204,7 @@ def display_thumbs_for_tag(tag):
     cur = cxn.cursor()
     cur.execute(sql, (tag,))
     for photo_id, thumb_relpath in cur.fetchall():
-        out.append([html.a(href=(relurl('index.py/photos/%d?tag=%s' %
-                                        (photo_id, q(tag))))),
-                    [html.img(src=relurl(PHOTOS_RELPATH + '/' + thumb_relpath))]])
+        out.append(thumb_link_elt(photo_id, tag, thumb_relpath))
     return out
            
 def display_thumbs_for_roll(roll_id):
@@ -217,9 +215,7 @@ def display_thumbs_for_roll(roll_id):
     cur = cxn.cursor()
     cur.execute(sql, (roll_id,))
     for photo_id, thumb_relpath in cur.fetchall():
-        out.append([html.a(href=(relurl('index.py/photos/%d' %
-                                        (photo_id,)))),
-                    [html.img(src=relurl(PHOTOS_RELPATH + '/' + thumb_relpath))]])
+        out.append(thumb_link_elt(photo_id, None, thumb_relpath))
     return out
            
 def display_tags_for_photo(photo):
@@ -229,8 +225,7 @@ def display_tags_for_photo(photo):
     cur = cxn.cursor()
     cur.execute(sql, (photo,))
     for tag, in cur.fetchall():
-        out.append([html.a(href=(relurl('index.py/tags/%s' % q(tag)))),
-                    tag])
+        out.append(tag_link_elt(tag))
     return out
 
 def get_photo_data(path):
@@ -247,12 +242,10 @@ def make_navigation_thumb(photo, tag, direction, roll_id):
                '       where t.id=pt.tag_id and oe.id=pt.photo_id'
                '       and t.name=?')
         args = (tag,)
-        suffix = '?tag=' + q(tag)
     else:
         sql = ('select oe.id, oe.thumb_relpath from original_exports oe,'
                '       photos p where oe.id=p.id and p.roll_id=?')
         args = (roll_id,)
-        suffix = ''
     sql += (' and oe.id %s ? order by oe.id %s limit 1'
             % (prev and '<' or '>', prev and 'desc' or 'asc'))
     args += (int(photo),)
@@ -261,13 +254,10 @@ def make_navigation_thumb(photo, tag, direction, roll_id):
     res = cur.fetchone()
     if res:
         return [html.div(klass=(prev and 'prevthumb' or 'nextthumb')),
-                [html.a(href=relurl('index.py/photos/%d%s'
-                                    % (res[0], suffix))),
-                 [html.img(alt="Previous",
-                           src=relurl(PHOTOS_RELPATH + '/' + res[1]))],
-                 [html.br],
-                 (prev and 'Previous' or 'Next')
-                 + (tag and ' by tag' or ' in roll')]]
+                thumb_link_elt(res[0], tag and q(tag), res[1],
+                               [html.br],
+                               (prev and 'Previous' or 'Next')
+                               + (tag and ' by tag' or ''))]
     else:
         return ''
 
@@ -307,24 +297,19 @@ def display_photo(photo, tag):
             [html.img(id="preview",
                       width=str(data['width']),
                       height=str(data['height']),
-                      src=relurl(PHOTOS_RELPATH + '/' + relpath))],
+                      src=photourl(relpath))],
             make_navigation_thumb(photo, tag, 'previous', roll_id),
             make_navigation_thumb(photo, tag, 'next', roll_id)],
            display_tags_for_photo(photo),
            display_exif_info(relpath),
            [html.div(id="mqhq"),
-            mq and [html.a(href=relurl(PHOTOS_RELPATH + '/' + mq)),
-                    'MQ'] or '',
-            hq and [html.a(href=relurl(PHOTOS_RELPATH + '/' + hq)),
-                    'HQ'] or '',]]
-    if tag:
-        hierarchy = [html.a(href=relurl('index.py/tags/'+q(tag))),
-                     tag]
-    else:
-        hierarchy = [html.a(href=relurl('index.py/rolls/%d'%roll_id)),
-                     'roll %d' % roll_id]
+            mq and [html.a(href=photourl(mq)), 'MQ'] or '',
+            hq and [html.a(href=photourl(hq)), 'HQ'] or '',]]
         
-    return hierarchy, out
+    return [roll_a_head(roll_id), 'roll %d' % roll_id], out
+
+########################################################################
+## Pages
 
 def page(body):
     return [html.html,
@@ -377,10 +362,10 @@ def page(body):
              body,
 
              [html.div(klass="footer"),
-              'Copyright &copy; 2006 Andy Wingo',
+              'Copyright &copy; 2006,2007 Andy Wingo',
               [html.br],
               'Generated by a ',
-              [html.a(href="http://wingolog.org/pub/original/"),
+              [html.a(href="http://wingolog.org/software/original/"),
                'bastard child'],
               ' of ',
               [html.em,
@@ -390,9 +375,7 @@ def page(body):
 
 def index():
     return page([html.div(style="text-align: center;"),
-                 [html.h1(klass="title"),
-                  [html.a(href=relurl('')),
-                   'Photo Gallery']],
+                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
                  
                  display_random_thumbs(6),
                  
@@ -400,36 +383,47 @@ def index():
                  
                  latest_roll(),
 
-                 [html.a(href=relurl('index.py/rolls/')),
-                  "older rolls..."]])
+                 [roll_a_head(), "older rolls..."]])
 
 def show_tag(tag):
     return page([html.div,
-                 [html.h1(klass="title"),
-                  [html.a(href=relurl('')),
-                   'Photo Gallery:',
-                   tag]],
+                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
                  [html.div(klass="navigation"),
-                  [html.a(href=relurl('')), 'Photo Gallery Index'],
-                  '&gt;',
-                  [html.a(href=relurl('index.py/tags/'+q(tag))),
-                   tag]],
+                  top_link_elt('Photo Gallery Index'),
+                  [html.span, '&gt;', tag_link_elt(tag)]],
                  
                  [html.div(style="text-align: center;"),
                   display_thumbs_for_tag(tag),
                   make_tag_cloud(tag)]])
 
 def show_photo(photo, tag):
-    hierarchy, content = display_photo(photo, tag)
+    roll, content = display_photo(photo, tag)
     return page([html.div,
-                 [html.h1(klass="title"),
-                  [html.a(href=relurl('')),
-                   'Photo Gallery']],
+                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
                  [html.div(klass="navigation"),
-                  [html.a(href=relurl('')), 'Photo Gallery Index'],
-                  [html.span, '&gt;', hierarchy],
-                  [html.span, '&gt;', "Photo %d" % photo]],
+                  top_link_elt('Photo Gallery Index'),
+                  [html.span, '&gt;', roll],
+                  [html.span, '&gt;', 'Photo %d' % photo]],
                  content])
+
+def show_roll(roll_id):
+    cur = cxn.cursor()
+    sql = 'select time from rolls where id=? limit 1'
+    cur.execute(sql, (roll_id,))
+    res = cur.fetchall()
+    if not res:
+        return ''
+    else:
+        ((t,),) = res
+    return page([html.div(style="text-align: center;"),
+                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
+                 
+                 [html.p,
+                  [rolls_a_head(after=t, klass='nextlink'), 'newer rolls'],
+                  [rolls_a_head(before=t, klass='prevlink'), 'older rolls']],
+
+                 display_thumbs_for_roll(roll_id),
+                 make_tag_cloud(roll_id=roll_id)])
 
 def roll_index(before, after, count=7):
     def nav():
@@ -437,11 +431,9 @@ def roll_index(before, after, count=7):
         min_time = (after and after + 1) or (res and res[-1][0])
         max_time = (before and before - 1) or (res and res[0][0])
         if min_time:
-            ret.append([html.a(href=relurl('index.py/rolls/?before=%d'%(min_time,))),
-                        'older rolls'])
+            ret.append([rolls_a_head(before=min_time), 'older rolls'])
         if max_time:
-            ret.append([html.a(href=relurl('index.py/rolls/?after=%d'%(max_time,))),
-                        'newer rolls'])
+            ret.append([rolls_a_head(after=max_time), 'newer rolls'])
         if ret:
             return [html.div] + ret
         else:
@@ -469,6 +461,9 @@ def roll_index(before, after, count=7):
         summaries = [html.p, 'No rolls found'] 
     return page([html.div(id='rolls')] + summaries + nav())
     
+########################################################################
+## mod_python foo
+
 def handler(req):
     global BASE_URI
     global cxn

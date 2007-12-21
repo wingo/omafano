@@ -1,3 +1,14 @@
+2007-12-22  Andy Wingo  <wingo@pobox.com>
+
+	* www/index.py (nested_a_head, photo_a_head, photourl)
+	(jpg_a_head, roll_a_head, rolls_a_head, top_link_elt)
+	(tag_link_elt, thumb_link_elt): Add a bunch of helpers.
+	(roll_summary, make_tag_cloud, display_random_thumbs)
+	(display_thumbs_for_tag, display_thumbs_for_roll)
+	(display_tags_for_photo, make_navigation_thumb, display_photo)
+	(page, index, show_tag, show_photo, show_roll, roll_index.nav):
+	Refactor to use helpers, some other minor fixen.
+
 2007-12-21  Andy Wingo  <wingo@pobox.com>
 
 	* www/index.py (BASE_URI, PHOTOS_RELPATH)
