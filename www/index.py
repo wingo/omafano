@@ -418,15 +418,20 @@ def show_roll(roll_id):
         return ''
     else:
         ((t,),) = res
-    return page([html.div(style="text-align: center;"),
+    return page([html.div,
                  [html.h1(klass="title"), top_link_elt('Photo Gallery')],
+                 [html.div(klass="navigation"),
+                  top_link_elt('Photo Gallery Index'),
+                  [html.span, '&gt;', [rolls_a_head(), 'Rolls']],
+                  [html.span, '&gt;', 'Roll %d'%roll_id]],
                  
-                 [html.p,
-                  [rolls_a_head(after=t, klass='nextlink'), 'newer rolls'],
-                  [rolls_a_head(before=t, klass='prevlink'), 'older rolls']],
+                 [html.div(style="text-align: center;"),
+                  [html.p,
+                   [rolls_a_head(before=t, klass='prevlink'), 'older rolls'],
+                   [rolls_a_head(after=t, klass='nextlink'), 'newer rolls']],
 
-                 display_thumbs_for_roll(roll_id),
-                 make_tag_cloud(roll_id=roll_id)])
+                  display_thumbs_for_roll(roll_id),
+                  make_tag_cloud(roll_id=roll_id)]])
 
 def roll_index(before, after, count=7):
     def nav():
@@ -462,7 +467,12 @@ def roll_index(before, after, count=7):
     summaries = [roll_summary(roll_id, time) for time, roll_id in res]
     if not summaries:
         summaries = [html.p, 'No rolls found'] 
-    return page([html.div(id='rolls')] + summaries + nav())
+    return page([html.div(id='rolls'),
+                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
+                 [html.div(klass="navigation"),
+                  top_link_elt('Photo Gallery Index'),
+                  [html.span, '&gt;', 'Rolls']],
+                ] + summaries + nav())
     
 ########################################################################
 ## mod_python foo

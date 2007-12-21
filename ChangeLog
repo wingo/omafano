@@ -11,6 +11,7 @@
 	(nested_a_head): Make kwargs default to {}.
 	(make_navigation_thumb): If there's no next or prev link, link
 	back to the tag or roll that we came from.
+	(show_roll, roll_index): Add navigation bars.
 
 2007-12-21  Andy Wingo  <wingo@pobox.com>
 
