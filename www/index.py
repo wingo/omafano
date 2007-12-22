@@ -14,6 +14,10 @@ import EXIF
 BASE_URI=None
 PHOTOS_RELPATH=''
 COPYRIGHT='Copyright &copy; 1999-2007 Andy Wingo'
+ATOM_AUTHOR_NAME='wingo'
+ATOM_AUTHOR_URL='http://wingolog.org/'
+ATOM_TITLE='photos by ' + ATOM_AUTHOR_NAME
+ATOM_SUBTITLE='powered by original'
 
 ########################################################################
 ## Utils
@@ -69,8 +73,10 @@ def q(s):
     return urllib.quote_plus(smart_str(s))
 def relurl(url):
     return BASE_URI + url
+def nestedurl(url):
+    return relurl('index.py/' + url)
 def nested_a_head(url, kw={}):
-    return html.a(href=relurl('index.py/' + url), **kw)
+    return html.a(href=nestedurl(url), **kw)
 def photo_a_head(id, tag=None, **kw):
     return nested_a_head('photos/%d%s' % (id, tag and '?tag=%s'%q(tag) or ''),
                          kw)
@@ -99,14 +105,18 @@ def thumb_link_elt(photo_id, tag, thumb_relpath, *extra_content):
 ########################################################################
 ## Parts of pages
 
-def roll_summary(roll_id, roll_time):
+def roll_summary(roll_id, roll_time, random=True):
     out = [html.div(klass='roll')]
-    tagpara = [html.p,
-               display_random_thumbs(7, roll_id=roll_id),
-               [roll_a_head(roll_id, klass='roll-title',
-                            style='text-decoration: none; font-weight: bold;'),
-                time.strftime('%d %b %y', time.gmtime(roll_time))],
-               [html.br]]
+    tagpara = [html.p]
+    if random:
+        tagpara.append(display_random_thumbs(7, roll_id=roll_id))
+    else:
+        tagpara.append(display_thumbs_for_roll(roll_id))
+    if roll_time is not None:
+        tagpara += [[roll_a_head(roll_id, klass='roll-title',
+                                 style='text-decoration: none; font-weight: bold;'),
+                     time.strftime('%d %b %y', time.gmtime(roll_time))],
+                    [html.br]]
 
     sql = ('select distinct t.name from photo_tags pt, tags t, photos p'
            '       where t.id=pt.tag_id and p.id=pt.photo_id'
@@ -489,6 +499,51 @@ def roll_index(before, after, count=7):
                   [html.span, '&gt;', 'Rolls']],
                 ] + summaries + nav())
     
+def rolls_atom(hostname, num_rolls=5):
+    def timestr(t):
+        return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(t))
+    def cdata(html):
+        return '<![CDATA[' + html2str(html) + ']]>'
+    cur = cxn.cursor()
+    sql = 'select id, time from rolls order by time desc limit ?'
+    cur.execute(sql, (num_rolls,))
+    res = cur.fetchall()
+    updated = timestr(res and res[0][1] or 0)
+
+    def feedtag(args):
+        attrs = (('xmlns', "http://www.w3.org/2005/Atom"),
+                 ('xml:base', nestedurl('rolls/atom')))
+        return ('<feed%s>%s</feed>'
+                % (''.join([' %s="%s"' % (k, v) for k, v in attrs]),
+                   '\n'.join(args)))
+    feed = [feedtag,
+            [html.title(type='text'), ATOM_TITLE],
+            [html.subtitle(type='text'), ATOM_SUBTITLE],
+            [html.updated, updated],
+            [html.generator(uri='http://wingolog.org/software/original/',
+                            version='3.141592'), 'Original'],
+            [html.link(rel="alternate", type="text/html",
+                       href=BASE_URI)],
+            [html.id, nestedurl('rolls/atom')],
+            [html.link(rel="self", type="application/atom+xml",
+                       href=nestedurl('rolls/atom'))]]
+    entries = [[html.entry,
+                [html.author,
+                 [html.name, ATOM_AUTHOR_NAME], [html.uri, ATOM_AUTHOR_URL]],
+                [html.title(type='html'),
+                 cdata(time.strftime('%d %b %y', time.gmtime(roll_time)))],
+                [html.link(rel="alternate", type="text/html",
+                           href=nestedurl('rolls/%d' % roll_id))],
+                [html.id],
+                [html.updated, timestr(roll_time)],
+                [html.published, timestr(roll_time)],
+                [html.content(**{'type':'html',
+                                 'xml:base':
+                                 nestedurl('rolls/%d' % roll_id)}),
+                 cdata(roll_summary(roll_id, None, random=False))]]
+               for roll_id, roll_time in res]
+    return feed + entries
+
 ########################################################################
 ## mod_python foo
 
@@ -504,6 +559,8 @@ def handler(req):
         return apache.HTTP_METHOD_NOT_ALLOWED
 
     uri = req.uri
+    if not '://' in uri:
+        uri = 'http://' + req.hostname + uri
     path_info = req.path_info
     try:
         args = (req.args and
@@ -520,6 +577,12 @@ def handler(req):
         index_py_uri = uri
     assert index_py_uri.endswith('index.py')
     BASE_URI = index_py_uri[:-len('index.py')]
+
+    if path_info == '/rolls/atom':
+        req.content_type = 'application/xhtml+xml'
+        req.write('<?xml version="1.0"?>')
+        req.write(html2str(rolls_atom(req.hostname)))
+        return apache.OK
 
     req.content_type = 'text/html'
     req.write('<?xml version="1.0"?>\n')

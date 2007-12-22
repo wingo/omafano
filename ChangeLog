@@ -16,6 +16,15 @@
 	(make_tag_cloud): Default thresh to 1.
 	(index): s/older rolls/more rolls/
 	(tags_index): Adapt to tag cloud args.
+	(ATOM_AUTHOR_NAME, ATOM_AUTHOR_URL, ATOM_TITLE, ATOM_SUBTITLE):
+	New conf vars.
+	(nestedurl): New helper.
+	(nested_a_head): use helper.
+	(roll_summary): Add option to display all photos instead of random
+	photos, for the rss feed.
+	(rolls_atom): Yay, implement atom feed for rolls.
+	(handler): Make the URI absolute if it is not already absolute.
+	Add hooks for the atom feed.
 
 2007-12-22  Andy Wingo  <wingo@pobox.com>
 
