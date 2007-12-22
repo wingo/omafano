@@ -25,6 +25,12 @@
 	(rolls_atom): Yay, implement atom feed for rolls.
 	(handler): Make the URI absolute if it is not already absolute.
 	Add hooks for the atom feed.
+	(AUTHOR_NAME, AUTHOR_URL, TITLE, SUBTITLE): Rename from atom_*;
+	now used generally.
+	(top_link_elt): Default to TITLE as the text.
+	(index, tags_index, show_tag, show_photo, show_roll, roll_index):
+	Use generic top_link_elt().
+	(rolls_atom): Use generic title and author vars.
 
 2007-12-22  Andy Wingo  <wingo@pobox.com>
 

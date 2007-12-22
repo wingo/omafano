@@ -14,10 +14,11 @@ import EXIF
 BASE_URI=None
 PHOTOS_RELPATH=''
 COPYRIGHT='Copyright &copy; 1999-2007 Andy Wingo'
-ATOM_AUTHOR_NAME='wingo'
-ATOM_AUTHOR_URL='http://wingolog.org/'
-ATOM_TITLE='photos by ' + ATOM_AUTHOR_NAME
-ATOM_SUBTITLE='powered by original'
+AUTHOR_NAME='wingo'
+AUTHOR_URL='http://wingolog.org/'
+
+TITLE='photos by ' + AUTHOR_NAME
+SUBTITLE='powered by original'
 
 ########################################################################
 ## Utils
@@ -91,7 +92,7 @@ def rolls_a_head(before=None, after=None, **kw):
     return nested_a_head('rolls/' + (before and '?before=%d'%before or '')
                          + (after and '?after=%d'%after or ''), kw)
 
-def top_link_elt(text='Photo Gallery', **kw):
+def top_link_elt(text=TITLE, **kw):
     return [html.a(href=BASE_URI, **kw), text]
 def tag_link_elt(tag=None, **kw):
     return [nested_a_head('tags/' + (tag and q(tag) or ''), kw), tag]
@@ -391,7 +392,7 @@ def page(body):
 
 def index():
     return page([html.div(style="text-align: center;"),
-                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
+                 [html.h1(klass="title"), top_link_elt()],
                  
                  latest_rolls(3),
                  [rolls_a_head(), "more rolls..."],
@@ -402,9 +403,9 @@ def index():
 
 def tags_index():
     return page([html.div,
-                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
+                 [html.h1(klass="title"), top_link_elt()],
                  [html.div(klass="navigation"),
-                  top_link_elt('Photo Gallery Index'),
+                  top_link_elt(),
                   [html.span, '&gt;', 'Tags']],
                  
                  [html.div(style="text-align: center;"),
@@ -413,9 +414,9 @@ def tags_index():
 
 def show_tag(tag):
     return page([html.div,
-                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
+                 [html.h1(klass="title"), top_link_elt()],
                  [html.div(klass="navigation"),
-                  top_link_elt('Photo Gallery Index'),
+                  top_link_elt(),
                   [html.span, '&gt;', tags_link_elt('Tags')],
                   [html.span, '&gt;', tag]],
                  
@@ -426,9 +427,9 @@ def show_tag(tag):
 def show_photo(photo, tag):
     roll, content = display_photo(photo, tag)
     return page([html.div,
-                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
+                 [html.h1(klass="title"), top_link_elt()],
                  [html.div(klass="navigation"),
-                  top_link_elt('Photo Gallery Index'),
+                  top_link_elt(),
                   [html.span, '&gt;', roll],
                   [html.span, '&gt;', 'Photo %d' % photo]],
                  content])
@@ -443,9 +444,9 @@ def show_roll(roll_id):
     else:
         ((t,),) = res
     return page([html.div,
-                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
+                 [html.h1(klass="title"), top_link_elt()],
                  [html.div(klass="navigation"),
-                  top_link_elt('Photo Gallery Index'),
+                  top_link_elt(),
                   [html.span, '&gt;', [rolls_a_head(), 'Rolls']],
                   [html.span, '&gt;', 'Roll %d'%roll_id]],
                  
@@ -493,9 +494,9 @@ def roll_index(before, after, count=7):
     if not summaries:
         summaries = [html.p, 'No rolls found'] 
     return page([html.div(id='rolls'),
-                 [html.h1(klass="title"), top_link_elt('Photo Gallery')],
+                 [html.h1(klass="title"), top_link_elt()],
                  [html.div(klass="navigation"),
-                  top_link_elt('Photo Gallery Index'),
+                  top_link_elt(),
                   [html.span, '&gt;', 'Rolls']],
                 ] + summaries + nav())
     
@@ -517,8 +518,8 @@ def rolls_atom(hostname, num_rolls=5):
                 % (''.join([' %s="%s"' % (k, v) for k, v in attrs]),
                    '\n'.join(args)))
     feed = [feedtag,
-            [html.title(type='text'), ATOM_TITLE],
-            [html.subtitle(type='text'), ATOM_SUBTITLE],
+            [html.title(type='text'), TITLE],
+            [html.subtitle(type='text'), SUBTITLE],
             [html.updated, updated],
             [html.generator(uri='http://wingolog.org/software/original/',
                             version='3.141592'), 'Original'],
@@ -529,7 +530,7 @@ def rolls_atom(hostname, num_rolls=5):
                        href=nestedurl('rolls/atom'))]]
     entries = [[html.entry,
                 [html.author,
-                 [html.name, ATOM_AUTHOR_NAME], [html.uri, ATOM_AUTHOR_URL]],
+                 [html.name, AUTHOR_NAME], [html.uri, AUTHOR_URL]],
                 [html.title(type='html'),
                  cdata(time.strftime('%d %b %y', time.gmtime(roll_time)))],
                 [html.link(rel="alternate", type="text/html",
