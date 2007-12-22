@@ -1,5 +1,12 @@
 2007-12-22  Andy Wingo  <wingo@pobox.com>
 
+	* sync/original-sync-from-f-spot (ensure_original_in_fspot)
+	(FSPOT_DB_VERSIONS): Allow multiple versions of the f-spot
+	database to work.
+
+	* TODO: Remove some items that i think are covered by the present
+	code.
+
 	* www/index.py (thumb_link_elt): Add alt text, fix bug whereby
 	content was being put in <img>.
 	(roll_summary): Rework divs and ps.

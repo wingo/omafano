@@ -17,8 +17,8 @@ your web server where you want your gallery to be. Note that copying
 www/* won't work, as there is an .htaccess file there.
 
 You will need mod_python, pysqlite, and the python imaging library (PIL)
-installed on your web server. The Debian 3.1 packages I have installed
-are libapache2-mod-python2.3, python2.3-sqlite, and python2.3-imaging.
+installed on your web server. The Debian 4.0 packages I have installed
+are libapache2-mod-python, python-pysqlite2, and python-imaging.
 
 
 Uploading your photos
@@ -58,6 +58,12 @@ the whole database to the web. The server side generates HTML that
 structurally matches what Jakub did with his version. In that manner we
 can actually share the same style files.
 
+The roll interface relies on f-spot actually tracking your imports as
+separate rolls, which is the case with current f-spot. However if you
+have older photos that you would like to retroactively assign to rolls,
+you might find the extension described at
+http://bugzilla.gnome.org/show_bug.cgi?id=497136 to be useful.
+
 --
 Andy Wingo <wingo@pobox.com>
-15 September 2006
+15 December 2007
