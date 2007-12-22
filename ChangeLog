@@ -12,6 +12,10 @@
 	(show_tag): Link to the tags page in the nav bar.
 	(show_roll): Show the roll time.
 	(handler): Hooks to show the tags/ page.
+	(COPYRIGHT, page): Factor out copyright to the conf.
+	(make_tag_cloud): Default thresh to 1.
+	(index): s/older rolls/more rolls/
+	(tags_index): Adapt to tag cloud args.
 
 2007-12-22  Andy Wingo  <wingo@pobox.com>
 

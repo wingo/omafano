@@ -13,6 +13,7 @@ import EXIF
 
 BASE_URI=None
 PHOTOS_RELPATH=''
+COPYRIGHT='Copyright &copy; 1999-2007 Andy Wingo'
 
 ########################################################################
 ## Utils
@@ -129,7 +130,7 @@ def latest_rolls(limit=1):
            
 def make_tag_cloud(*containing_tags, **kwargs):
     roll_id = kwargs.get('roll_id', None)
-    thresh = kwargs.get('thresh', 3)
+    thresh = kwargs.get('thresh', 1)
     limit = kwargs.get('limit', 100)
     sql = ('select count(pt.photo_id), t.name'
            '       from photo_tags pt, tags t')
@@ -372,7 +373,7 @@ def page(body):
              body,
 
              [html.div(klass="footer"),
-              'Copyright &copy; 2006,2007 Andy Wingo',
+              COPYRIGHT,
               [html.br],
               'Powered by a hacked version of ',
               [html.a(href="http://wingolog.org/software/original/"),
@@ -383,9 +384,9 @@ def index():
                  [html.h1(klass="title"), top_link_elt('Photo Gallery')],
                  
                  latest_rolls(3),
-                 [rolls_a_head(), "older rolls..."],
+                 [rolls_a_head(), "more rolls..."],
 
-                 make_tag_cloud(thresh=1, limit=60),
+                 make_tag_cloud(limit=60),
                  tags_link_elt("more tags..."),
                  display_random_thumbs(6)])
 
@@ -398,7 +399,7 @@ def tags_index():
                  
                  [html.div(style="text-align: center;"),
                   [html.br],
-                  make_tag_cloud(thresh=1, limit=300)]])
+                  make_tag_cloud(limit=300)]])
 
 def show_tag(tag):
     return page([html.div,
