@@ -1,5 +1,20 @@
 2007-12-22  Andy Wingo  <wingo@pobox.com>
 
+	* www/index.py (tags_link_elt): New helper.
+	(roll_summary): A bit of visual tweaking.
+	(latest_rolls): Return a div with the N latest rolls, instead of
+	just the last one.
+	(make_tag_cloud): Add kwargs thresh and limit.
+	(page): Tweaks to the footer.
+	(index): Showcase the latest rolls more, making a smaller tag
+	cloud. Link to the new tags/ page.
+	(tags_index): New page, shows the more full tag cloud.
+	(show_tag): Link to the tags page in the nav bar.
+	(show_roll): Show the roll time.
+	(handler): Hooks to show the tags/ page.
+
+2007-12-22  Andy Wingo  <wingo@pobox.com>
+
 	* www/index.py (nested_a_head, photo_a_head, photourl)
 	(jpg_a_head, roll_a_head, rolls_a_head, top_link_elt)
 	(tag_link_elt, thumb_link_elt): Add a bunch of helpers.
