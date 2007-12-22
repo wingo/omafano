@@ -1,5 +1,28 @@
 2007-12-22  Andy Wingo  <wingo@pobox.com>
 
+	* www/index.py (thumb_link_elt): Add alt text, fix bug whereby
+	content was being put in <img>.
+	(roll_summary): Rework divs and ps.
+	(latest_rolls): s/id/klass/.
+	(make_tag_cloud): s/id/klass/.
+	(display_random_thumbs): same
+	(display_thumbs_for_tag): same
+	(display_thumbs_for_roll): same
+	(display_tags_for_photo): same
+	(display_photo): add alt text
+	(page): put namespace on root element
+	(page): s/onLoad/onload/ for validity
+	(index): Shuffle things around for aesthetics
+	(roll_index.nav): Fix validation foo
+	(rolls_atom): Give entries proper ids.
+	(handler): Serve atom as applicaiton/xml, as recommended by the
+	w3c. Write html with encoding=utf-8. Change to dtd link to
+	something more standard.
+
+	* sync/original-re-rotate-photos: New script, rescales files on
+	the server. Useful if exifautotran borked your thumbnails, not
+	much use otherwise.
+
 	* www/index.py (tags_link_elt): New helper.
 	(roll_summary): A bit of visual tweaking.
 	(latest_rolls): Return a div with the N latest rolls, instead of

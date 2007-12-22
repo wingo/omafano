@@ -100,24 +100,24 @@ def tags_link_elt(text='Tags', **kw):
     return [nested_a_head('tags/', kw), text]
 def thumb_link_elt(photo_id, tag, thumb_relpath, *extra_content):
     return [photo_a_head(photo_id, tag=tag),
-            [html.img(src=photourl(thumb_relpath))] + list(extra_content)]
+            [html.img(src=photourl(thumb_relpath), alt="")]] + list(extra_content)
 
 
 ########################################################################
 ## Parts of pages
 
 def roll_summary(roll_id, roll_time, random=True):
-    out = [html.div(klass='roll')]
-    tagpara = [html.p]
+    out = [html.p(klass='roll')]
     if random:
-        tagpara.append(display_random_thumbs(7, roll_id=roll_id))
+        out.extend(display_random_thumbs(7, roll_id=roll_id)[1:])
     else:
-        tagpara.append(display_thumbs_for_roll(roll_id))
+        out.extend(display_thumbs_for_roll(roll_id)[1:])
     if roll_time is not None:
-        tagpara += [[roll_a_head(roll_id, klass='roll-title',
-                                 style='text-decoration: none; font-weight: bold;'),
-                     time.strftime('%d %b %y', time.gmtime(roll_time))],
-                    [html.br]]
+        out += [[html.br],
+                [roll_a_head(roll_id, klass='roll-title',
+                             style='text-decoration: none; font-weight: bold;'),
+                 time.strftime('%d %b %y', time.gmtime(roll_time))],
+                [html.br]]
 
     sql = ('select distinct t.name from photo_tags pt, tags t, photos p'
            '       where t.id=pt.tag_id and p.id=pt.photo_id'
@@ -127,8 +127,7 @@ def roll_summary(roll_id, roll_time, random=True):
     words = cur.fetchall()
     for word, in words:
         # fixme: link to only roll
-        tagpara.append(tag_link_elt(word, style='text-decoration: none'))
-    out.append(tagpara)
+        out.append(tag_link_elt(word, style='text-decoration: none'))
     return out
     
 def latest_rolls(limit=1):
@@ -136,7 +135,7 @@ def latest_rolls(limit=1):
     sql = 'select id, time from rolls order by time desc limit ?'
     cur.execute(sql, (limit,))
     res = cur.fetchall()
-    return ([html.div(id='latest-rolls')]
+    return ([html.div(klass='latest-rolls')]
             + [roll_summary(roll_id, time) for roll_id, time in res])
            
 def make_tag_cloud(*containing_tags, **kwargs):
@@ -166,7 +165,7 @@ def make_tag_cloud(*containing_tags, **kwargs):
     sql += ' group by t.name'
     cur = cxn.cursor()
     cur.execute(sql, args)
-    out = [html.div(id='tagcloud')]
+    out = [html.div(klass='tagcloud')]
     counts = cur.fetchall()
     if not counts:
         return
@@ -195,7 +194,7 @@ def make_tag_cloud(*containing_tags, **kwargs):
     return out
            
 def display_random_thumbs(n, since=None, roll_id=None):
-    out = [html.div(id='randomthumbs')]
+    out = [html.div(klass='randomthumbs')]
     sql = 'select oe.id, oe.thumb_relpath from original_exports oe'
     args = []
     if since:
@@ -215,7 +214,7 @@ def display_random_thumbs(n, since=None, roll_id=None):
     return out
            
 def display_thumbs_for_tag(tag):
-    out = [html.div(id='thumbsfortag')]
+    out = [html.div(klass='thumbsfortag')]
     sql = ('select oe.id, oe.thumb_relpath from original_exports oe, '
            '       tags t, photo_tags pt'
            '       where t.id=pt.tag_id and oe.id=pt.photo_id'
@@ -227,7 +226,7 @@ def display_thumbs_for_tag(tag):
     return out
            
 def display_thumbs_for_roll(roll_id):
-    out = [html.div(id='thumbsforroll')]
+    out = [html.div(klass='thumbsforroll')]
     sql = ('select oe.id, oe.thumb_relpath from original_exports oe, '
            '       photos p'
            '       where oe.id=p.id and p.roll_id = ?')
@@ -238,7 +237,7 @@ def display_thumbs_for_roll(roll_id):
     return out
            
 def display_tags_for_photo(photo):
-    out = [html.div(id='tagsforphoto', style="text-align: center; margin-top:24px;")]
+    out = [html.div(klass='tagsforphoto', style="text-align: center; margin-top:24px;")]
     sql = ('select t.name from tags t, photo_tags pt '
            '       where t.id=pt.tag_id and pt.photo_id=?')
     cur = cxn.cursor()
@@ -316,7 +315,7 @@ def display_photo(photo, tag):
     data = get_photo_data(relpath)
     out = [html.div,
            [html.div(id="image", style=("height: %dpx" % data['height'])),
-            [html.img(id="preview",
+            [html.img(id="preview", alt="",
                       width=str(data['width']),
                       height=str(data['height']),
                       src=photourl(relpath))],
@@ -334,7 +333,7 @@ def display_photo(photo, tag):
 ## Pages
 
 def page(body):
-    return [html.html,
+    return [html.html(xmlns="http://www.w3.org/1999/xhtml"),
             [html.head,
              '<!-- This makes IE6 suck less (a bit) -->',
              '<!--[if lt IE 7]>',
@@ -357,7 +356,7 @@ def page(body):
                         href=relurl("inc/styles/gorilla/gorilla.css"), title="gorilla",
                         media="screen")],
              [html.script(src=relurl("inc/global.js"), type="text/javascript")]],
-            [html.body(onLoad="checkForTheme()"),
+            [html.body(onload="checkForTheme()"),
              [html.div(klass="stylenavbar"),
               [html.div(id="styleshiden", style="display: block;"),
                [html.p,
@@ -394,12 +393,15 @@ def index():
     return page([html.div(style="text-align: center;"),
                  [html.h1(klass="title"), top_link_elt()],
                  
-                 latest_rolls(3),
-                 [rolls_a_head(), "more rolls..."],
+                 latest_rolls(1),
 
                  make_tag_cloud(limit=60),
-                 tags_link_elt("more tags..."),
-                 display_random_thumbs(6)])
+
+                 [html.p,
+                  [rolls_a_head(), "browse by roll"], " ",
+                  tags_link_elt("browse by tag")],
+
+                 [html.p] + display_random_thumbs(6)[1:]])
 
 def tags_index():
     return page([html.div,
@@ -469,7 +471,7 @@ def roll_index(before, after, count=7):
         if max_time:
             ret.append([rolls_a_head(after=max_time), 'newer rolls'])
         if ret:
-            return [html.div] + ret
+            return [[html.div] + ret]
         else:
             return []
 
@@ -535,7 +537,7 @@ def rolls_atom(hostname, num_rolls=5):
                  cdata(time.strftime('%d %b %y', time.gmtime(roll_time)))],
                 [html.link(rel="alternate", type="text/html",
                            href=nestedurl('rolls/%d' % roll_id))],
-                [html.id],
+                [html.id, nestedurl('rolls/%d' % roll_id)],
                 [html.updated, timestr(roll_time)],
                 [html.published, timestr(roll_time)],
                 [html.content(**{'type':'html',
@@ -580,15 +582,15 @@ def handler(req):
     BASE_URI = index_py_uri[:-len('index.py')]
 
     if path_info == '/rolls/atom':
-        req.content_type = 'application/xhtml+xml'
+        req.content_type = 'application/xml'
         req.write('<?xml version="1.0"?>')
         req.write(html2str(rolls_atom(req.hostname)))
         return apache.OK
 
     req.content_type = 'text/html'
-    req.write('<?xml version="1.0"?>\n')
+    req.write('<?xml version="1.0" encoding="UTF-8"?>\n')
     req.write('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" '
-              '"http://www.w3.org/TR/2000/REC-xhtml1-20000126/DTD/xhtml1-strict.dtd">\n')
+              '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">')
     if path_info:
         if path_info.startswith('/photos/'):
             try:

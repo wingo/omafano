@@ -1,0 +1,148 @@
+#!/usr/bin/env python2.4
+# -*- python -*-
+
+from __future__ import division
+
+import sys
+import os
+import os.path
+import gc
+import optparse
+import tempfile
+import Image
+from pysqlite2 import dbapi2
+
+FSPOT_DB = os.path.expanduser("~/.gnome2/f-spot/photos.db")
+FSPOT_DB_VERSION = 9
+VERSION = 0.1
+jhead_checked = False
+jhead_available = True
+
+options = None
+cxn = None
+output_uri = None
+
+def dbg(format, *args):
+    if options.debug:
+        fr = sys._getframe(1)
+        filename = os.path.basename(fr.f_code.co_filename)
+        func = fr.f_code.co_name
+        lineno = fr.f_lineno
+        sys.stderr.write(('%s:%s():%d: ' + format + '\n')
+                         % ((filename, func, lineno) + args))
+
+def info(format, *args):
+    print format % args
+
+def warn(format, *args):
+    sys.stderr.write(('Warning: ' + format + '\n') % args)
+
+def err(format, *args):
+    sys.stderr.write(('Error: ' + format + '\n') % args)
+    sys.exit(1)
+
+def init(args):
+    global options
+    global cxn
+
+    parser = optparse.OptionParser()
+    parser.add_option('-d', '--debug',
+                      action="store_true", dest="debug",
+                      help="run in debugging mode")
+    parser.add_option('', '--version',
+                      action="store_true", dest="version",
+                      help="show version information")
+
+    # fixme: add tagging constraints
+
+    options, args = parser.parse_args(args)
+
+    if len(args) < 3:
+        sys.stderr.write("Error: Too few arguments.\n")
+        sys.stderr.write("usage: %s [OPTIONS] PATH-TO-DB DIR...\n" % (args[0],))
+        sys.stderr.write("\nTry %s --help for available options.\n" % (args[0],))
+        sys.exit(1)
+
+    if options.version:
+        print 'original-re-rotate-photos' % VERSION
+        print 'Copyright (C) 2006,7 Andy Wingo.'
+        print 'Part of O.R.I.G.I.N.A.L., Jakub Steiner\'s ' \
+              'family of web gallery tools.'
+        print 'This is free software; see the source for copying conditions.'
+        print
+        sys.exit(0)
+
+    dbg('options: %r', options)
+
+    cxn = dbapi2.connect(args[1])
+    dbg('chdir to %s', os.path.dirname(os.path.dirname(args[1])))
+    os.chdir(os.path.dirname(os.path.dirname(args[1])))
+    return args[2:]
+
+def transfer_exif(frompath, topath):
+    global jhead_checked
+    global jhead_available
+    if jhead_available:
+        dbg('calling jhead to transfer exif information from %s to %s',
+            frompath, topath)
+        res = os.spawnlp(os.P_WAIT, 'jhead', 'jhead', '-te',
+                         frompath, topath)
+        if not jhead_checked:
+            jhead_available = (res == 0)
+            if res != 0:
+                warn('jhead does not seem to be available; EXIF '
+                     'information will not be transferred.')
+        elif res != 0:
+            warn('Could not transfer EXIF information from %s to %s',
+                 frompath, topath)
+
+def exifautotran(path):
+    dbg('calling exifautotran on %s',path)
+    res = os.spawnlp(os.P_WAIT, 'exifautotran', path)
+    if res != 0:
+        err('Could not rotate %s', path)
+
+def rescale(src, dest):
+    def get_dest_size(orig_w, orig_h):
+        destbuf = Image.open(dest)
+        w, h = destbuf.size
+        if (w <= h) != (orig_w <= orig_h):
+            w, h = h, w
+        del destbuf
+        return w, h
+
+    info('Preparing to scale %s', src)
+    pixbuf = Image.open(src)
+        
+    w, h = get_dest_size(*pixbuf.size)
+    dbg('scaling %s to %dx%d for %s', src, w, h, dest)
+    copy = pixbuf.resize((w, h), Image.ANTIALIAS)
+    copy.save(dest, quality=90)
+    del copy
+    transfer_exif(src, dest)
+    del pixbuf
+    gc.collect()
+
+def main(args):
+    dirs = init(args)
+    cur = cxn.cursor()
+    
+    def any(p, *l):
+        l and p(l[0]) or any(p, l[1:])
+
+    cur.execute('select id, thumb_relpath, normal_relpath,'
+                '  mq_relpath, hq_relpath from original_exports')
+    for id, thumb, normal, mq, hq in cur.fetchall():
+        if not any(lambda pre: thumb.startswith(pre), dirs)
+            continue
+        if thumb[0:thumb.index(os.path.sep)] not in dirs:
+            continue
+        if not hq:
+            warn('no hq photo for %s', thumb)
+            continue
+        exifautotran(hq)
+        for p in mq, normal, thumb:
+            rescale(hq, p)
+
+if __name__ == '__main__':
+    main(sys.argv)
