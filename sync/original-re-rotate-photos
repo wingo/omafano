@@ -9,6 +9,7 @@ import os.path
 import gc
 import optparse
 import tempfile
+import subprocess
 import Image
 from pysqlite2 import dbapi2
 
@@ -52,6 +53,9 @@ def init(args):
     parser.add_option('', '--version',
                       action="store_true", dest="version",
                       help="show version information")
+    parser.add_option('', '--all',
+                      action="store_true", dest="all",
+                      help="rescale all photos, not just the ones we think need it")
 
     # fixme: add tagging constraints
 
@@ -97,10 +101,39 @@ def transfer_exif(frompath, topath):
                  frompath, topath)
 
 def exifautotran(path):
-    dbg('calling exifautotran on %s',path)
-    res = os.spawnlp(os.P_WAIT, 'exifautotran', path)
-    if res != 0:
-        err('Could not rotate %s', path)
+    dbg('calling jpegexiforient on %s',path)
+    stdout, stderr = subprocess.Popen(('jpegexiforient', path), stdout=subprocess.PIPE).communicate()
+    if stdout is None:
+        err('jpegexiforient failed on %s', path)
+    elif not stdout:
+        warn('no exif orientation info for %s', path)
+        return False
+    orientation = int(stdout)
+    if orientation == 1:
+        return False
+    else:
+        # from exifautotran
+        transforms = {2: ("-flip", "horizontal"),
+                      3: ("-rotate", "180"),
+                      4: ("-flip", "vertical"),
+                      5: ("-transpose",),
+                      6: ("-rotate", "90"),
+                      7: ("-transverse",),
+                      8: ("-rotate", "270")}
+        args = (('jpegtran', '-copy', 'all')
+                + transforms[orientation] + (path,))
+        fd, name = tempfile.mkstemp()
+        tmp = os.fdopen(fd)
+        dbg('calling %r', args)
+        pret = subprocess.Popen(args, stdout=tmp).wait()
+        if pret != 0:
+            err('%r failed: %d', args, pret)
+        else:
+            os.rename(name, path)
+        pret = subprocess.Popen(('jpegexiforient', '-1', path)).wait()
+        if pret != 0:
+            err('jpegexiforient failed: %d', pret)
+        return True
 
 def rescale(src, dest):
     def get_dest_size(orig_w, orig_h):
@@ -127,22 +160,20 @@ def main(args):
     dirs = init(args)
     cur = cxn.cursor()
     
-    def any(p, *l):
-        l and p(l[0]) or any(p, l[1:])
+    def any(p, l):
+        return l and (p(l[0]) or any(p, l[1:]))
 
     cur.execute('select id, thumb_relpath, normal_relpath,'
                 '  mq_relpath, hq_relpath from original_exports')
     for id, thumb, normal, mq, hq in cur.fetchall():
-        if not any(lambda pre: thumb.startswith(pre), dirs)
-            continue
-        if thumb[0:thumb.index(os.path.sep)] not in dirs:
+        if not any(lambda pre: thumb.startswith(pre), dirs):
             continue
         if not hq:
             warn('no hq photo for %s', thumb)
             continue
-        exifautotran(hq)
-        for p in mq, normal, thumb:
-            rescale(hq, p)
+        if exifautotran(hq) or options.all:
+            for p in mq, normal, thumb:
+                rescale(hq, p)
 
 if __name__ == '__main__':
     main(sys.argv)

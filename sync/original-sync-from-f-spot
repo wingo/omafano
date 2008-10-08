@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.4
+#!/usr/bin/env python
 # -*- python -*-
 
 from __future__ import division
@@ -17,7 +17,7 @@ import gtk
 from gtk import gdk
 
 FSPOT_DB = os.path.expanduser("~/.gnome2/f-spot/photos.db")
-FSPOT_DB_VERSIONS = (9, 10)
+FSPOT_DB_VERSIONS = (9, 10, 11, 12, 13, 14)
 VERSION = 0.1
 jhead_checked = False
 jhead_available = True
