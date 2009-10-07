@@ -16,11 +16,18 @@ import gobject
 import gtk
 from gtk import gdk
 
-FSPOT_DB = os.path.expanduser("~/.gnome2/f-spot/photos.db")
-FSPOT_DB_VERSIONS = (9, 10, 11, 12, 13, 14)
+FSPOT_DB = os.path.expanduser("~/.config/f-spot/photos.db")
+FSPOT_DB_VERSION_MIN = (17, 0)
+FSPOT_DB_VERSION_MAX = (17, 100)
 VERSION = 0.1
 jhead_checked = False
 jhead_available = True
+
+def parse_version(str):
+    try:
+        return (int(str), 0)
+    except:
+        return tuple([int(x) for x in str.split('.')])
 
 options = None
 cxn = dbapi2.connect(FSPOT_DB)
@@ -50,9 +57,10 @@ def ensure_original_in_fspot():
     cur = cxn.cursor()
     cur.execute("select data from meta where name='F-Spot Database Version'")
     res = cur.fetchall()
-    if not res or int(res[0][0]) not in FSPOT_DB_VERSIONS:
-        raise SystemExit('unexpected f-spot database version: %s not in %r'
-                         % (res, FSPOT_DB_VERSIONS))
+    if not res or parse_version(res[0][0]) < FSPOT_DB_VERSION_MIN or \
+            parse_version(res[0][0]) > FSPOT_DB_VERSION_MAX:
+        raise SystemExit('unexpected f-spot database version: %s (%s, %s)'
+                         % (res, FSPOT_DB_VERSION_MIN, FSPOT_DB_VERSION_MAX))
 
     cur.execute("select data from meta where name='original_db_version'")
     res = cur.fetchall()
@@ -272,8 +280,9 @@ def scale_photo(photo_id, tmpdir):
         return square_bounds(bounds, options.scaled_size * 0.2)
 
     cur = cxn.cursor()
-    cur.execute('select uri from photos where id=?', (photo_id,))
-    uri, = cur.fetchone()
+    cur.execute('select base_uri, filename from photos where id=?', (photo_id,))
+    base_uri, basename = cur.fetchone()
+    uri = base_uri + basename
     inuri = gnomevfs.URI(uri)
     path = gnomevfs.get_local_path_from_uri(uri)
     basename = os.path.basename(path)
@@ -339,9 +348,10 @@ def mkdirp(uri, relpath):
 
 def copy_photo(photo_id, tmpdir, scaled):
     cur = cxn.cursor()
-    cur.execute('select uri from photos where id=?',
+    cur.execute('select base_uri, filename from photos where id=?',
                 (photo_id,))
-    uri, = cur.fetchone()
+    base_uri, basename = cur.fetchone()
+    uri = base_uri + basename
     assert uri.startswith('file://')
     relpath = os.path.sep.join(uri.split(os.path.sep)[-4:-1])
     mkdirp(output_uri, relpath)
