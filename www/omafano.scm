@@ -277,7 +277,7 @@
 (define* (random-thumbs n #:key since roll-id)
   (let ((q (make-query)))
     (define (q+! str . args) (set! q (query+ q str args)))
-    (q+! "select oe.id, oe.thumb_relpath from omafano_exports oe")
+    (q+! "select oe.id, oe.thumb_relpath from original_exports oe")
     (when since
       (q+! ", photos p where oe.id=p.id and p.time > ?" since))
     (when roll-id
@@ -296,7 +296,7 @@
            (match-lambda
             (#(id thumb-relpath) (thumb-link id tag thumb-relpath)))
            (make-query
-            "select oe.id, oe.thumb_relpath from omafano_exports oe,
+            "select oe.id, oe.thumb_relpath from original_exports oe,
                           tags t, photo_tags pt
                           where t.id=pt.tag_id and oe.id=pt.photo_id and t.name=?"
             tag))))
@@ -306,7 +306,7 @@
         ,@(query-map
            (match-lambda
             (#(id thumb-relpath) (thumb-link id #f thumb-relpath)))
-           (make-query "select oe.id, oe.thumb_relpath from omafano_exports oe,
+           (make-query "select oe.id, oe.thumb_relpath from original_exports oe,
                           photos p where oe.id=p.id and p.roll_id=?"
                        roll-id))))
            
@@ -331,11 +331,11 @@
   (let ((q (make-query)))
     (define (q+! str . args) (set! q (query+ q str args)))
     (if tag
-        (q+! "select oe.id, oe.thumb_relpath from omafano_exports oe,
+        (q+! "select oe.id, oe.thumb_relpath from original_exports oe,
                  tags t, photo_tags pt
                  where t.id=pt.tag_id and oe.id=pt.photo_id
                  and t.name=?" tag)
-        (q+! "select oe.id, oe.thumb_relpath from omafano_exports oe, photos p
+        (q+! "select oe.id, oe.thumb_relpath from original_exports oe, photos p
                  where oe.id=p.id and p.roll_id=?" roll-id))
     (match direction
       ('previous (q+! " and oe.id<? order by oe.id desc limit 1" photo))
@@ -386,7 +386,7 @@
 (define (display-photo photo tag)
   (match (query-results
           (make-query "select normal_relpath, mq_relpath, hq_relpath, roll_id
-                        from omafano_exports oe, photos p
+                        from original_exports oe, photos p
                         where oe.id=p.id and oe.id=?"
                       photo))
     (() `(p "No such photo: " ,photo))
