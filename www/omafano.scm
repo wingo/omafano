@@ -561,7 +561,7 @@
     (case method
       ((GET HEAD)
        (match (remove-base (split-and-decode-uri-path (uri-path uri))
-                           *public-path-base*)
+                           *private-path-base*)
          (()
           (index))
          (("photos" (? id? photo))
