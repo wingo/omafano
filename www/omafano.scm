@@ -392,7 +392,7 @@
                       photo))
     (() `(p "No such photo: " ,photo))
     ((#(path mq hq roll-id))
-     (match-values (photo-dimensions relpath)
+     (match-values (photo-dimensions path)
        ((width height)
         (values
          (roll-link roll-id `("roll " ,roll-id))
