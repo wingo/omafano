@@ -1,12 +1,9 @@
-Original
+Omafano
 ========
 
-Original is a web gallery designed with tags in mind. There are two
+Omafano is a web gallery designed with tags in mind. There are two
 parts: one that synchronizes all or part of your f-spot photo collection
 to the web, and one that runs on your web server to show your photos.
-
-Note that this is a fork of Jakub Steiner's Original -- see the About
-section for more details.
 
 
 Installation on your web server
@@ -25,14 +22,14 @@ Uploading your photos
 ---------------------
 
 The part that runs on your computer is one script,
-original-sync-from-f-spot, which you can find in the sync/ directory.
+omafano-sync-from-f-spot, which you can find in the sync/ directory.
 
 The script will, by default, upload all photos from your f-spot
 collection that have tags attached, but not photos with the Hidden tag.
 This behavior can be changed of course -- pass `--help' to the script on
 the command line for documentation on its many parameters.
 
-original-sync-from-f-spot needs python 2.4 to run, with the pysqlite and
+omafano-sync-from-f-spot needs python 2.4 to run, with the pysqlite and
 python-gnome2-desktop packages installed.
 
 The first time you run the script, it will require you to specify an
@@ -52,11 +49,11 @@ exact CSS aesthetics, which meant reusing code from an existing project.
 
 I chose Jakub Steiner's Original
 (http://jimmac.musichall.cz/original.php3) as the model, due to its
-aesthetics. My version of Original just takes the f-spot database, adds
-a table to keep track of which photos have been uploaded, and uploads
-the whole database to the web. The server side generates HTML that
-structurally matches what Jakub did with his version. In that manner we
-can actually share the same style files.
+aesthetics. Omafano just takes the f-spot database, adds a table to keep
+track of which photos have been uploaded, and uploads the whole database
+to the web. The server side generates HTML that structurally matches
+what Jakub did with Original. In that manner I could actually share the
+same style files, though things have diverged since then.
 
 The roll interface relies on f-spot actually tracking your imports as
 separate rolls, which is the case with current f-spot. However if you
@@ -66,4 +63,4 @@ http://bugzilla.gnome.org/show_bug.cgi?id=497136 to be useful.
 
 --
 Andy Wingo <wingo@pobox.com>
-15 December 2007
+Last updated 1 October 2014

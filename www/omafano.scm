@@ -1,4 +1,4 @@
-;; Original
+;; Omafano
 ;; Copyright (C) Andy Wingo <wingo at pobox dot com>
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -14,7 +14,7 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program; if not, see <http://www.gnu.org/licenses/>.
 
-(define-module (original)
+(define-module (omafano)
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
   #:use-module (exif)
@@ -94,9 +94,9 @@
                (div (@ (class "footer"))
                     "Copyright 1999-2014 " ,*author-name*
                     (br)
-                    "Powered by a hacked version of "
-                    (a (@ (href "http://wingolog.org/software/original/"))
-                       (em "Original"))))))
+                    "Powered by "
+                    (a (@ (href "http://wingolog.org/software/omafano/"))
+                       (em "Omafano"))))))
 
 (define* (respond #:optional body #:key
                   (status 200)
@@ -281,7 +281,7 @@
 (define* (random-thumbs n #:key since roll-id)
   (let ((q (make-query)))
     (define (q+! str . args) (set! q (query+ q str args)))
-    (q+! "select oe.id, oe.thumb_relpath from original_exports oe")
+    (q+! "select oe.id, oe.thumb_relpath from omafano_exports oe")
     (when since
       (q+! ", photos p where oe.id=p.id and p.time > ?" since))
     (when roll-id
@@ -300,7 +300,7 @@
            (match-lambda
             (#(id thumb-relpath) (thumb-link id tag thumb-relpath)))
            (make-query
-            "select oe.id, oe.thumb_relpath from original_exports oe,
+            "select oe.id, oe.thumb_relpath from omafano_exports oe,
                           tags t, photo_tags pt
                           where t.id=pt.tag_id and oe.id=pt.photo_id and t.name=?"
             tag))))
@@ -310,7 +310,7 @@
         ,@(query-map
            (match-lambda
             (#(id thumb-relpath) (thumb-link id #f thumb-relpath)))
-           (make-query "select oe.id, oe.thumb_relpath from original_exports oe,
+           (make-query "select oe.id, oe.thumb_relpath from omafano_exports oe,
                           photos p where oe.id=p.id and p.roll_id=?"
                        roll-id))))
            
@@ -335,11 +335,11 @@
   (let ((q (make-query)))
     (define (q+! str . args) (set! q (query+ q str args)))
     (if tag
-        (q+! "select oe.id, oe.thumb_relpath from original_exports oe,
+        (q+! "select oe.id, oe.thumb_relpath from omafano_exports oe,
                  tags t, photo_tags pt
                  where t.id=pt.tag_id and oe.id=pt.photo_id
                  and t.name=?" tag)
-        (q+! "select oe.id, oe.thumb_relpath from original_exports oe, photos p
+        (q+! "select oe.id, oe.thumb_relpath from omafano_exports oe, photos p
                  where oe.id=p.id and p.roll_id=?" roll-id))
     (match direction
       ('previous (q+! " and oe.id<? order by oe.id desc limit 1" photo))
@@ -363,7 +363,7 @@
 (for-each (match-lambda
            ((machine . human)
             (hash-set! *machine->human* machine human)))
-          '(("EXIF DateTimeOriginal" . "Time Taken")
+          '(("EXIF DateTimeOmafano" . "Time Taken")
             ("Image Make" . "Camera Manufacturer")
             ("Image Model" . "Camera Model")
             ("EXIF FocalLength" . "Real Focal Length")
@@ -390,7 +390,7 @@
 (define (display-photo photo tag)
   (match (query-results
           (make-query "select normal_relpath, mq_relpath, hq_relpath, roll_id
-                        from original_exports oe, photos p
+                        from omafano_exports oe, photos p
                         where oe.id=p.id and oe.id=?"
                       photo))
     (() `(p "No such photo: " ,photo))
@@ -522,9 +522,9 @@
        ,@(if updated
              `((roll-time ,(timestamp->atom-date updated)))
              '())
-       (generator (@ (uri "http://wingolog.org/software/original")
+       (generator (@ (uri "http://wingolog.org/software/omafano")
                      (version "3.141592"))
-                  "Original")
+                  "Omafano")
        (link (@ (rel "alternate") (type "text/html")
                 (href ,(relurl '()))))
        (id ,(relurl "rolls" "atom"))

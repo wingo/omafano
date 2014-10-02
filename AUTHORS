@@ -1,13 +1,2 @@
-This package is an application of the styles and principles of Jakub
-Steiner's Original, written in Python by Andy Wingo. All of the code is
-different; only the javascript, images, and css files are shared between
-the two versions.
-
-Andy Wingo <wingo@pobox.com> (original-sync-from-f-spot, index.py)
-Jakub Steiner <jimmac@ximian.com> (styles, javascript, css)
-
-www/EXIF.py was written by Gene Cash, but has other contributors as
-well; see its initial comments for more information.
-
-The files in www/inc/styles/ie7 were written by Dean Edwards. See
-www/inc/styles/ie7/license for more information.
+Andy Wingo <wingo@pobox.com>
+Jakub Steiner <jimmac@ximian.com> (some styles inherited from Original)
