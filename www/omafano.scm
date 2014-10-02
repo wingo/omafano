@@ -266,8 +266,9 @@
                    (let* ((size (+ 0.5
                                    (* (/ (- count thresh) (- max-count thresh))
                                       1.6)))
-                          (style (format #f "font-size:~fem; text-decoration:none"
-                                         size)))
+                          (style
+                           (format #f "font-size:~,2fem; text-decoration:none"
+                                   size)))
                      (tag-link tag #:attrs `((style . ,style))))))
                  (sort
                   (apply-threshold results thresh)
@@ -390,23 +391,22 @@
                         where oe.id=p.id and oe.id=?"
                       photo))
     (() `(p "No such photo: " ,photo))
-    ((#(relpath mq hq roll-id))
+    ((#(path mq hq roll-id))
      (match-values (photo-dimensions relpath)
        ((width height)
         (values
          (roll-link roll-id `("roll " ,roll-id))
          `(div
-           (div (@ (id "image")
-                   (style ,(format #f "height: ~apx" height)))
+           (div (@ (id "image"))
                 (img (@ (id "preview") (alt "")
-                        (src ,relpath)
+                        (src ,(relpath (split-path path)))
                         ,@(if (and width height)
                               `((width ,width) (height ,height))
                               '())))
                 ,(navigation-thumb photo tag 'previous roll-id)
                 ,(navigation-thumb photo tag 'next roll-id))
            ,(tags-for-photo photo)
-           ,(exif-info relpath)
+           ,(exif-info path)
            (div (@ (id "mqhq"))
                 ,(if mq (link (split-path mq) '("MQ")) "")
                 " "
