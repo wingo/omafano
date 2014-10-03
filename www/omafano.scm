@@ -49,6 +49,7 @@
 
 (define *author-name* "Alice Hacker")
 (define *author-url* "http://example.com/")
+(define *copyright-years* "1999")
 
 (define (timestamp->date timestamp)
   (time-utc->date (make-time time-utc 0 timestamp) 0))
@@ -88,7 +89,7 @@
                           '())
                     ,@body)
                (div (@ (class "footer"))
-                    "Copyright 1999-2014 " ,*author-name*
+                    "Copyright " ,*copyright-years* " " ,*author-name*
                     (br)
                     "Powered by "
                     (a (@ (href "http://wingolog.org/software/omafano/"))
