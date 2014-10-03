@@ -461,7 +461,7 @@
     (cond
      (before (q+! " where time < ? order by time desc" before))
      (after (q+! " where time > ? order by time asc" after))
-     (else (q+! " order by time asc")))
+     (else (q+! " order by time desc")))
     (q+! " limit ?" count)
     (let* ((results (query-results q))
            (results (if (and (not before) after) (reverse results) results))
