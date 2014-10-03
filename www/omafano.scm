@@ -169,6 +169,18 @@
                    . ,body)
               #:tag tag))
 
+(define *stmt-cache* (make-hash-table))
+(define (sqlite-prepare/cached *db* sql)
+  (cond
+   ((hash-ref *stmt-cache* sql)
+    => (lambda (stmt)
+         (sqlite-reset stmt)
+         stmt))
+   (else
+    (let ((stmt (sqlite-prepare *db* sql)))
+      (hash-set! *stmt-cache* sql stmt)
+      stmt))))
+
 (define* (make-query #:optional (sql "") . args)
   (vector sql (reverse args)))
 (define (query+ query sql* args*)
@@ -178,7 +190,7 @@
 (define (run-query query)
   (match query
     (#(sql reversed-args)
-     (let ((stmt (sqlite-prepare *db* sql)))
+     (let ((stmt (sqlite-prepare/cached *db* sql)))
        (fold (lambda (arg idx)
                (sqlite-bind stmt idx arg)
                (1+ idx))
