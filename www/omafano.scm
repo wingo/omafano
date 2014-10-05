@@ -79,6 +79,7 @@
 (define* (templatize #:key (title *title*) (body '((p "No body")))
                      (navigation '()))
   `(html (head (title ,title)
+               (meta (@ (name "viewport") (content "width=device-width")))
                (link (@ (rel "stylesheet")
                         (href ,(relpath '("omafano.css")))
                         (type "text/css"))))
