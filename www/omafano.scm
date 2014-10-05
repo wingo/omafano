@@ -374,14 +374,13 @@
 (for-each (match-lambda
            ((machine . human)
             (hash-set! *machine->human* machine human)))
-          '(("EXIF DateTimeOmafano" . "Time Taken")
-            ("Image Make" . "Camera Manufacturer")
-            ("Image Model" . "Camera Model")
-            ("EXIF FocalLength" . "Real Focal Length")
-            ;; ("FIXME what here?" . "Focal Length Relative to 35mm Film")
-            ("EXIF FNumber" . "F Stop")
-            ("EXIF ExposureTime" . "Time of Exposure")
-            ("EXIF Flash" . "Flash")))
+          '(("DateTimeOriginal" . "Time Taken")
+            ("Make" . "Camera Manufacturer")
+            ("Model" . "Camera Model")
+            ("FocalLength" . "Real Focal Length")
+            ("FNumber" . "F Stop")
+            ("ExposureTime" . "Time of Exposure")
+            ("Flash" . "Flash")))
 
 (define (exif-info relpath)
   `(p (@ (class "exif"))
@@ -389,7 +388,7 @@
          (filter-map
           (lambda (entry)
             (let ((name (hash-ref *machine->human* (entry-name entry))))
-              (and name `(span (@ (title ,name) ,(entry-data entry))))))
+              (and name `(span (@ (title ,name)) ,(entry-value entry)))))
           (catch #t
             (lambda ()
               (exif-entries-for-file relpath))
