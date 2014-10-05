@@ -87,8 +87,7 @@
                 (lp nav (cons tok path))))))))
 
 (define* (templatize #:key (title *title*) (body '((p "No body")))
-                     (navigation '())
-                     (sxml-navigation (make-sxml-navigation navigation)))
+                     (navigation '()))
   `(html (head (title ,title)
                (meta (@ (name "viewport") (content "width=device-width")))
                (link (@ (rel "stylesheet")
@@ -96,7 +95,7 @@
                         (type "text/css"))))
          (body (div (@ (id "navigation"))
                     (h1 (@ (id "title")) ,(link '() (list title)))
-                    ,@sxml-navigation)
+                    ,@navigation)
                (div (@ (id "content")) ,@body)
                (div (@ (id "colophon"))
                          "Copyright " ,*copyright-years* " " ,*author-name*
@@ -112,9 +111,10 @@
                   (content-type-params '((charset . "utf-8")))
                   (content-type 'text/html)
                   (navigation '())
+                  (sxml-navigation (make-sxml-navigation navigation))
                   (extra-headers '())
                   (sxml (and body (templatize #:title title #:body body
-                                              #:navigation navigation))))
+                                              #:navigation sxml-navigation))))
   (values (build-response
            #:code status
            #:headers `((content-type . (,content-type ,@content-type-params))
@@ -175,8 +175,8 @@
 (define* (tags-link body #:key (attrs '()))
   (link `("tags") body #:attrs attrs))
 (define* (thumb-link id tag path . body)
-  (photo-link id `((img (@ (src ,(relpath (split-path path)))
-                           (alt "")))
+  (photo-link id `((div (@ (class "thumb"))
+                         (img (@ (src ,(relpath (split-path path))))))
                    . ,body)
               #:tag tag))
 
@@ -223,7 +223,7 @@
 (define* (roll-summary roll-id roll-time #:key (random? #t))
   `(p (@ (class "roll"))
       ,(if random?
-           (random-thumbs 7 #:roll-id roll-id)
+           (random-thumbs 5 #:roll-id roll-id)
            (thumbs-for-roll roll-id))
       ,@(if roll-time
             `((br)
@@ -429,10 +429,15 @@
                               '()))))
            ,(tags-for-photo photo)
            ,(exif-info path)
-           (div (@ (id "mqhq"))
-                ,(if mq (link (split-path mq) '("MQ")) "")
-                " "
-                ,(if hq (link (split-path hq) '("HQ")) "")))))))))
+           ,@(let ((mq (and mq (link (split-path mq) '("medium-res"))))
+                   (hq (and hq (link (split-path hq) '("high-res")))))
+               (if (or mq hq)
+                   `((div (@ (id "mqhq"))
+                          "(" ,@(if mq
+                                    (cons* mq (if hq (list ", " hq) '()))
+                                    (list hq))
+                          ")"))
+                   '())))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Pages
@@ -443,16 +448,19 @@
              (p ,(rolls-link '("browse by roll"))
                 " "
                 ,(tags-link '("browse by tag")))
-             ,(random-thumbs 6))))
+             ,(random-thumbs 5))))
 
 (define (show-photo photo tag)
   (match-values (display-photo photo tag)
     ((roll content)
      (respond `(,content)
               #:sxml-navigation
-              `(,(roll-link roll (format #f "roll ~a" roll))
+              `(" → "
+                ,(roll-link roll
+                            (list (format #f "roll ~a" roll)))
                 " → "
-                ,(link `("photos" ,photo) (list (number->string photo))))))))
+                ,(link `("photos" ,(number->string photo))
+                       (list (number->string photo))))))))
 
 (define (tags-index)
   (respond `((div (@ (style "text-align: center"))
@@ -494,6 +502,7 @@
                         ,(if min-time
                              (rolls-link '("older rolls") #:before min-time)
                              '(span))
+                        " "
                         ,(if max-time
                              (rolls-link '("newer rolls") #:after max-time)
                              '(span)))))))
