@@ -517,7 +517,7 @@
     (respond
      #f
      #:extra-headers (if updated
-                         `((last-modified . timestamp->date))
+                         `((last-modified . ,(timestamp->date updated)))
                          '())
      #:doctype #f
      #:content-type 'application/atom+xml
@@ -529,14 +529,14 @@
        (title (@ (type "text")) ,*title*)
        (subtitle (@ (type "text")) ,*subtitle*)
        ,@(if updated
-             `((roll-time ,(timestamp->atom-date updated)))
+             `((updated ,(timestamp->atom-date updated)))
              '())
        (generator (@ (uri "http://wingolog.org/software/omafano")
                      (version "3.141592"))
                   "Omafano")
        (link (@ (rel "alternate") (type "text/html")
                 (href ,(relurl '()))))
-       (id ,(relurl "rolls" "atom"))
+       (id ,(relurl '("rolls" "atom")))
        (link (@ (rel "self") (type "application/atom+xml")
                 (href ,(relurl '("rolls" "atom")))))
        ,@(map (match-lambda
@@ -546,7 +546,7 @@
                           (title (@ (type "text"))
                                  ,(strftime "%d %b %y" (gmtime roll-time)))
                           (link (@ (rel "alternate") (type "text/html")
-                                   (href ,(relurl '("rolls" ,roll-url)))))
+                                   (href ,roll-url)))
                           (id ,roll-url)
                           (updated ,(timestamp->atom-date roll-time))
                           (published ,(timestamp->atom-date roll-time))
