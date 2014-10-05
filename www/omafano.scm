@@ -76,25 +76,34 @@
     (#f '())
     (params (parse-www-form-urlencoded params))))
 
+(define (make-sxml-navigation navigation)
+  (let lp ((nav navigation) (path '()))
+    (match nav
+      (() '())
+      ((tok . nav)
+       (let ((tok (if (string? tok) tok (object->string tok))))
+         (cons* " → "
+                (link (append-reverse path (list tok)) (list tok))
+                (lp nav (cons tok path))))))))
+
 (define* (templatize #:key (title *title*) (body '((p "No body")))
-                     (navigation '()))
+                     (navigation '())
+                     (sxml-navigation (make-sxml-navigation navigation)))
   `(html (head (title ,title)
                (meta (@ (name "viewport") (content "width=device-width")))
                (link (@ (rel "stylesheet")
                         (href ,(relpath '("omafano.css")))
                         (type "text/css"))))
-         (body (div (h1 (@ (class "title")) ,(link '() (list title)))
-                    ,@(if (pair? navigation)
-                          `((div (@ (class "navigation"))
-                                 ,@(list-join navigation "> ")))
-                          '())
-                    ,@body)
-               (div (@ (class "footer"))
-                    "Copyright " ,*copyright-years* " " ,*author-name*
-                    (br)
-                    "Powered by "
-                    (a (@ (href "http://wingolog.org/software/omafano/"))
-                       (em "Omafano"))))))
+         (body (div (@ (id "navigation"))
+                    (h1 (@ (id "title")) ,(link '() (list title)))
+                    ,@sxml-navigation)
+               (div (@ (id "content")) ,@body)
+               (div (@ (id "colophon"))
+                         "Copyright " ,*copyright-years* " " ,*author-name*
+                         ".  Powered by "
+                         (a (@ (href "http://wingolog.org/software/omafano/"))
+                            (em "Omafano"))
+                         "."))))
 
 (define* (respond #:optional body #:key
                   (status 200)
@@ -408,16 +417,16 @@
      (match-values (photo-dimensions path)
        ((width height)
         (values
-         (roll-link roll-id `("roll " ,roll-id))
+         roll-id
          `(div
            (div (@ (id "image"))
+                ,(navigation-thumb photo tag 'previous roll-id)
+                ,(navigation-thumb photo tag 'next roll-id)
                 (img (@ (id "preview") (alt "")
                         (src ,(relpath (split-path path)))
                         ,@(if (and width height)
                               `((width ,width) (height ,height))
-                              '())))
-                ,(navigation-thumb photo tag 'previous roll-id)
-                ,(navigation-thumb photo tag 'next roll-id))
+                              '()))))
            ,(tags-for-photo photo)
            ,(exif-info path)
            (div (@ (id "mqhq"))
@@ -434,26 +443,28 @@
              (p ,(rolls-link '("browse by roll"))
                 " "
                 ,(tags-link '("browse by tag")))
-             ,(random-thumbs 6))
-           #:navigation #f))
+             ,(random-thumbs 6))))
 
 (define (show-photo photo tag)
   (match-values (display-photo photo tag)
     ((roll content)
      (respond `(,content)
-              #:navigation `(,roll ,photo)))))
+              #:sxml-navigation
+              `(,(roll-link roll (format #f "roll ~a" roll))
+                " → "
+                ,(link `("photos" ,photo) (list (number->string photo))))))))
 
 (define (tags-index)
   (respond `((div (@ (style "text-align: center"))
                   (br)
                   ,(tag-cloud #:limit 300)))
-           #:navigation '("Tags")))
+           #:navigation '("tags")))
 
 (define (show-tag tag)
   (respond `((div (@ (style "text-align: center"))
                   ,(thumbs-for-tag tag)
                   ,(tag-cloud #:tag tag)))
-           #:navigation `("Tags" ,tag)))
+           #:navigation `("tags" ,tag)))
 
 (define* (rolls-index before after #:key (count 7))
   (let ((q (make-query)))
@@ -486,7 +497,7 @@
                         ,(if max-time
                              (rolls-link '("newer rolls") #:after max-time)
                              '(span)))))))
-       #:navigation '("Rolls")))))
+       #:navigation '("rolls")))))
     
 (define (show-roll roll-id)
   (match (query-results
@@ -503,8 +514,7 @@
                              #:attrs '((class . "prevlink")))))
         ,(thumbs-for-roll roll-id)
         ,(tag-cloud #:roll-id roll-id))
-      #:navigation `(,(rolls-link "Rolls")
-                     ,(roll-link roll-id  `("roll " ,roll-id)))))))
+      #:navigation `("rolls" ,roll-id)))))
 
 (define* (rolls-atom #:key (num-rolls 5))
   (let* ((rolls (query-results
