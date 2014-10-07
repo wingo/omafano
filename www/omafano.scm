@@ -17,7 +17,6 @@
 (define-module (omafano)
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
-  #:use-module (exif)
   #:use-module (sqlite3)
   #:use-module (jpeg)
   #:use-module (srfi srfi-1)
@@ -344,12 +343,12 @@
                         photo))
            " ")))
            
-(define (photo-dimensions path)
+(define (photo-metadata path)
   (catch #t
-    (lambda () (jpeg-dimensions path))
+    (lambda () (jpeg-metadata path))
     (lambda (k . args)
       (print-exception (current-output-port) #f k args)
-      (values #f #f))))
+      (values #f #f '()))))
 
 (define* (navigation-thumb photo tag direction roll-id)
   (let ((q (make-query)))
@@ -379,32 +378,20 @@
                             ('previous "Previous") ('next "Next"))
                           (if tag (string-append " in " tag) "")))))))
 
-(define *machine->human* (make-hash-table))
+(define *exif-tags* (make-hash-table))
 (for-each (match-lambda
            ((machine . human)
-            (hash-set! *machine->human* machine human)))
-          '(("DateTimeOriginal" . "Time Taken")
-            ("Make" . "Camera Manufacturer")
-            ("Model" . "Camera Model")
-            ("FocalLength" . "Real Focal Length")
-            ("FNumber" . "F Stop")
-            ("ExposureTime" . "Time of Exposure")
-            ("Flash" . "Flash")))
-
-(define (exif-info relpath)
-  `(p (@ (class "exif"))
-      ,@(list-join
-         (filter-map
-          (lambda (entry)
-            (let ((name (hash-ref *machine->human* (entry-name entry))))
-              (and name `(span (@ (title ,name)) ,(entry-value entry)))))
-          (catch #t
-            (lambda ()
-              (exif-entries-for-file relpath))
-            (lambda (k . args)
-              (print-exception (current-output-port) #f k args)
-              '())))
-         " | ")))
+            (hashq-set! *exif-tags* machine human)))
+          '((date-time-original . "Time Taken")
+            (make . "Camera Manufacturer")
+            (model . "Camera Model")
+            (focal-length . "Real Focal Length")
+            (f-number . "F Stop")
+            (exposure-time . "Time of Exposure")
+            ;; For now omit flash, until we have a way to turn its
+            ;; result to a useful string.
+            #;
+            (flash . "Flash")))
 
 (define (display-photo photo tag)
   (match (query-results
@@ -414,8 +401,8 @@
                       photo))
     (() `(p "No such photo: " ,photo))
     ((#(path mq hq roll-id))
-     (match-values (photo-dimensions path)
-       ((width height)
+     (match-values (photo-metadata path)
+       ((width height exif)
         (values
          roll-id
          `(div
@@ -428,7 +415,15 @@
                               `((width ,width) (height ,height))
                               '()))))
            ,(tags-for-photo photo)
-           ,(exif-info path)
+           (p (@ (class "exif"))
+              ,@(list-join
+                 (filter-map
+                  (match-lambda
+                   ((name . value)
+                    (let ((name (hashq-ref *exif-tags* name)))
+                      (and name `(span (@ (title ,name)) ,value)))))
+                  exif)
+                 " | "))
            ,@(let ((mq (and mq (link (split-path mq) '("medium-res"))))
                    (hq (and hq (link (split-path hq) '("high-res")))))
                (if (or mq hq)
