@@ -385,6 +385,7 @@
           '((date-time-original . "Time Taken")
             (make . "Camera Manufacturer")
             (model . "Camera Model")
+            #; ;; Omit for now as fractions not parsed either!
             (focal-length . "Real Focal Length")
             (f-number . "F Stop")
             (exposure-time . "Time of Exposure")
