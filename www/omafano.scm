@@ -387,7 +387,9 @@
             (model . "Camera Model")
             #; ;; Omit for now as fractions not parsed either!
             (focal-length . "Real Focal Length")
+            #; ;; Omit too?
             (f-number . "F Stop")
+            #; ;; Omit too?
             (exposure-time . "Time of Exposure")
             ;; For now omit flash, until we have a way to turn its
             ;; result to a useful string.
