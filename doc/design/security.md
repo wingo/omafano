@@ -159,26 +159,44 @@ vulnerabilities by design.
 
 ## HTTPS only
 
+It's probably an uncontroversial move at this point, but Omafano is
+designed to only be available over HTTPS.  Without HTTPS, your photos
+are vulnerable to passive snooping.  People sharing wifi with you at the
+airport could steal your secrets, and even end up with the ability to
+add and delete your photos.  Given that Omafano is a centralized web
+application, it is crucial that the connection from the client to the
+web application be over HTTPS.
 
+Omafano uses HTTP Strict Transport Security (HSTS) to ensure that typing
+"omafano.net" (or your URL) into a browser causes a secure connection to
+be made, once you have visited the omafano installation for the first
+time.  It also marks its cookies as secure so that they will never leak
+into a plain-text HTTP channel.
 
-https only
+## Revocable share links
 
-downgrade attacks
+You can easily create "share links" for the photos that you have access
+to, which can be pasted into email or any other messaging medium to
+share your photos with friends.  Share links are associated with secrets
+(capabilities).  Visiting a share link presents the user with a bounce
+page that grants them access to that secret -- either permanently, or
+only for that browser session.  You can later grant access to more
+photos in that same share set.
 
-insecure cookies
+Like all secrets in Omafano, these shared links and shared secrets have
+a record of who created them, and they can be revoked at any time.  Of
+course Omafano can't protect against screen captures or saving files to
+disk or disk caches or any other thing like that, but this can provide
+some useful security to users, especially in the case of device loss.
 
-hsts
+## Private by default
 
-no c
-
-revocable share links
-
-screencaps / saving
-
-private by default
+In Omafano, when you upload photos, they are private by default.  You
+have to take action to make them public.  [TODO: flesh out this
+workflow]
 
 ## Links
 
-guile types rant
-
 https://modelviewculture.com/pieces/social-networking-as-peer-surveillance
+
+http://www.gnu.org/software/guile/manual/html_node/Types-and-the-Web.html
