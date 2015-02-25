@@ -45,8 +45,8 @@ standard encryption techniques to data in motion.  More on that below.
 
 The main threat to our users is not from government, however, but rather
 from fellow citizens: from Lisa's unhappy constituents, from Margaret's
-friends in the sales business, from George's potential employers, and
-more generally from the kind of hateful internet user that protagonizes
+friends in the sales business, from George's potential employers, and in
+the extreme from the kind of hateful internet user that protagonizes
 "movements" like Gamergate and the like.  These peers can be determined
 attackers, but usually don't have any privileged position on the
 network.  This is the primary threat model for Omafano.
@@ -102,7 +102,7 @@ kind of design, known as _capabilities_-based design, allows for limpid
 analysis of information flow and therefore of who sees what about which
 photos.  
 
-One impact of this approach is that Omafano has no users and no
+One consequence of this approach is that Omafano has no users and no
 passwords.  User names and passwords are a notorious source of
 insecurity, as a breach in one web site allows malicious users to try
 out those passwords on other sites, and commonly succeeding.  Instead,
@@ -116,11 +116,11 @@ capabilities-based models that store the secret in the URL itself, but
 there are too many ways that the capability can leak in this way:
 browser history on shared machines, plaintext leakage if the user types
 in a URL without the https://, referrer leaking if the page embeds
-third-party resources (Omafano doesn't, FWIW), pre-loading via "rich"
-email clients (Facebook used to pre-visit URLS for its own nefarious
-purposes), and surely there are more.  With secure cookies, at least the
-recipient of a shared secret is unlikely to accidentally leak the
-secret.
+third-party resources (Omafano doesn't, for what that's worth),
+pre-loading via "rich" email clients (Facebook used to pre-visit URLS
+for its own nefarious purposes), and surely there are more.  With secure
+cookies, at least the recipient of a shared secret is unlikely to
+accidentally leak the secret.
 
 ### Random names
 
