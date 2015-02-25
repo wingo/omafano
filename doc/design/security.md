@@ -84,7 +84,7 @@ need to get right from the beginning.  We're making software that we
 hope will still be running in 10 years, so security can't be an
 afterthought.
 
-## Centralized access control
+### Centralized access control
 
 Some web programming environments, notably PHP, promote a design where
 entry points to the web application are spread out across the
@@ -93,7 +93,7 @@ handling all incoming requests in a centralized way, so one can
 enumerate the ways that information flows in and out the application and
 ensure that your private photos stay private.
 
-## Capabilities-based design
+### Capabilities-based design
 
 Instead of centering the security analysis on "users" -- who you are --
 we focus on "secrets" -- what you know.  Secrets don't grant access to
@@ -122,7 +122,7 @@ purposes), and surely there are more.  With secure cookies, at least the
 recipient of a shared secret is unlikely to accidentally leak the
 secret.
 
-## Random names
+### Random names
 
 In the same way that shared secrets are random, photo and roll IDs in
 Omafano are also random.  Some web services number rolls sequentially,
@@ -136,14 +136,14 @@ URLs.  This naturally decreases security -- a pet name is more guessable
 than a randomly generated secure secret -- but for photos that you want
 to share, perhaps this is less of an issue.
 
-## Memory safety
+### Memory safety
 
 Many web applications end up using libraries written in C, an unsafe
 language that has been an enabling factor in many computer exploits.
 Omafano is written in Scheme, a safe language, and so is immune to most
 exploits of this kind.
 
-## XSS
+### XSS
 
 Cross-site scripting (XSS) is a vulnerability in which text from the
 user is mis-interpreted as code.  Ultimately the responsibility for this
@@ -153,11 +153,31 @@ this difficulty by building pages from structured data, in which text is
 always treated as text and never as code.  This eliminates XSS
 vulnerabilities by design.
 
-## CSRF
+### CSRF
 
-(I have no good CSRF answer; what do we do?)
+Cross-site request forgery (CSRF) is an attack in which third-party web
+sites make requests on behalf of the user.  Because Omafano stores its
+secrets in cookies in the user's browser, those "cross-site" requests
+carry the credentials normally associated with the people to whom they
+were granted.  Using JavaScript, a malicious third-party site can even
+post to forms on Omafano, potentially deleting or making public photos
+from a user.
 
-## HTTPS only
+To defeat this category of attack, Omafano has to verify that requests
+made to it actually originate from the user and not a malicious
+third-party web site.  Omafano does so by checking the HTTP "Referer"
+header -- any POST to Omafano must be the result of the user visiting
+the Omafano site, and so must include the Omafano URL in the Referer
+header.
+
+Normally access control via Referer checks is frowned upon -- it's just
+a header that can be forged by anyone that can telnet to your port 80.
+In the case of CSRF however we are explicitly considering attacks from
+third-party web sites via the user's web browser, and in that case,
+absent any XSS vulnerability, it is impossible to forge the Referer
+header.
+
+### HTTPS only
 
 It's probably an uncontroversial move at this point, but Omafano is
 designed to only be available over HTTPS.  Without HTTPS, your photos
@@ -173,7 +193,9 @@ be made, once you have visited the omafano installation for the first
 time.  It also marks its cookies as secure so that they will never leak
 into a plain-text HTTP channel.
 
-## Revocable share links
+[Is there a case for HTTP in Omafano for publicly available photos?]
+
+### Revocable share links
 
 You can easily create "share links" for the photos that you have access
 to, which can be pasted into email or any other messaging medium to
@@ -189,13 +211,14 @@ course Omafano can't protect against screen captures or saving files to
 disk or disk caches or any other thing like that, but this can provide
 some useful security to users, especially in the case of device loss.
 
-## Private by default
+### Private by default
 
 In Omafano, when you upload photos, they are private by default.  You
-have to take action to make them public.  [TODO: flesh out this
-workflow]
+have to take action to make them public.
 
-## Links
+[Need to flesh out this workflow.]
+
+### Links
 
 https://modelviewculture.com/pieces/social-networking-as-peer-surveillance
 
