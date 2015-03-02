@@ -223,3 +223,5 @@ have to take action to make them public.
 https://modelviewculture.com/pieces/social-networking-as-peer-surveillance
 
 http://www.gnu.org/software/guile/manual/html_node/Types-and-the-Web.html
+
+http://www.cs.ox.ac.uk/~people/toby.murray/papers/AOCS.pdf
