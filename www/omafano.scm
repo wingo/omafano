@@ -1,5 +1,5 @@
 ;; Omafano
-;; Copyright (C) Andy Wingo <wingo at pobox dot com>
+;; Copyright (C) 2014 Andy Wingo <wingo at pobox dot com>
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@
   #:use-module (web response)
   #:use-module (web server)
   #:use-module (web uri)
+  #:declarative? #f
   #:export (main))
 
 (define *public-host* "127.0.0.1")
@@ -345,7 +346,7 @@
            
 (define (photo-metadata path)
   (catch #t
-    (lambda () (jpeg-metadata path))
+    (lambda () (jpeg-dimensions-and-exif path))
     (lambda (k . args)
       (print-exception (current-output-port) #f k args)
       (values #f #f '()))))
@@ -378,23 +379,31 @@
                             ('previous "Previous") ('next "Next"))
                           (if tag (string-append " in " tag) "")))))))
 
-(define *exif-tags* (make-hash-table))
-(for-each (match-lambda
-           ((machine . human)
-            (hashq-set! *exif-tags* machine human)))
-          '((date-time-original . "Time Taken")
-            (make . "Camera Manufacturer")
-            (model . "Camera Model")
-            #; ;; Omit for now as fractions not parsed either!
-            (focal-length . "Real Focal Length")
-            #; ;; Omit too?
-            (f-number . "F Stop")
-            #; ;; Omit too?
-            (exposure-time . "Time of Exposure")
-            ;; For now omit flash, until we have a way to turn its
-            ;; result to a useful string.
-            #;
-            (flash . "Flash")))
+(define (format-value value)
+  (cond ((string? value) value)
+        ((number? value) value)
+        ((pair? value) (/ (car value) (cdr value)))
+        (else (error "don't know how to format" value))))
+(define (format-float value)
+  (format #f "~,2f" (/ (car value) (cdr value))))
+
+(define-syntax-rule (define-exif-tags table
+                      (sym-name str-name formatter)
+                      ...)
+  (begin
+    (define table (make-hash-table))
+    (hashq-set! table 'sym-name (cons str-name formatter))
+    ...))
+
+(define-exif-tags *exif-tags*
+  (date-time-original "Time Taken" format-value)
+  (make "Camera Manufacturer" format-value)
+  (model "Camera Model" format-value)
+  (focal-length "Focal Length" format-float)
+  (f-number "F Stop" format-float)
+  (exposure-time "Exposure Time" format-value)
+  (flash "Flash" (lambda (alist)
+                   (and (assq-ref alist 'fired?) "Flash fired"))))
 
 (define (display-photo photo tag)
   (match (query-results
@@ -402,7 +411,7 @@
                         from original_exports oe, photos p
                         where oe.id=p.id and oe.id=?"
                       photo))
-    (() `(p "No such photo: " ,photo))
+    (() (values #f `(p "No such photo: " ,photo)))
     ((#(path mq hq roll-id))
      (match-values (photo-metadata path)
        ((width height exif)
@@ -423,8 +432,12 @@
                  (filter-map
                   (match-lambda
                    ((name . value)
-                    (let ((name (hashq-ref *exif-tags* name)))
-                      (and name `(span (@ (title ,name)) ,value)))))
+                    (match (hashq-ref *exif-tags* name)
+                      (#f #f)
+                      ((name . formatter)
+                       (let ((formatted (formatter value)))
+                         (and formatted
+                              `(span (@ (title ,name)) ,formatted)))))))
                   exif)
                  " | "))
            ,@(let ((mq (and mq (link (split-path mq) '("medium-res"))))
@@ -450,6 +463,8 @@
 
 (define (show-photo photo tag)
   (match-values (display-photo photo tag)
+    ((#f content)
+     (respond (list content) #:status 404))
     ((roll content)
      (respond `(,content)
               #:sxml-navigation
@@ -510,7 +525,7 @@
   (match (query-results
           (make-query "select time from rolls where id=? limit 1"
                       roll-id))
-    (() '())
+    (() (respond `((p "No roll found: " ,roll-id)) #:status 404))
     ((#(time))
      (respond
       `((div (@ (style "text-align: center"))
@@ -574,48 +589,48 @@
                                                #:random? #f)))))))
               rolls)))))
 
-(define (handle request body)
-  (let ((uri (request-uri request))
-        (method (request-method request)))
-    (define (id? str)
-      (and=> (string->number str)
-             (lambda (n) (and (exact-integer? n) (not (negative? n))))))
-    (define (remove-base path base)
-      (match base
-        (() path)
-        ((head . base)
-         (match path
-           ((head* . path)
-            (and (equal? head head*) (remove-base path base)))
-           (_ #f)))))
-    (case method
-      ((GET HEAD)
-       (match (remove-base (split-and-decode-uri-path (uri-path uri))
-                           *private-path-base*)
-         (()
-          (index))
-         (("photos" (? id? photo))
-          (show-photo (string->number photo)
-                      (assoc-ref (uri-query-params uri) "tag")))
-         (("tags")
-          (tags-index))
-         (("tags" tag)
-          (show-tag tag))
-         (("rolls")
-          (let* ((params (uri-query-params uri))
-                 (before (assoc-ref params "before"))
-                 (after (assoc-ref params "after")))
-            (rolls-index (and before (id? before) (string->number before))
-                         (and after (id? after) (string->number after)))))
-         (("rolls" (? id? roll))
-          (show-roll (string->number roll)))
-         (("rolls" "atom")
-          (rolls-atom))
-         (_
-          (respond `((h1 "Page not found")
-                     (p "Unknown path: " ,(uri-path uri)))
-                   #:status 404))))
-      (else (respond #:status 405)))))
+   (define (handle request body)
+     (let ((uri (request-uri request))
+           (method (request-method request)))
+       (define (id? str)
+         (and=> (string->number str)
+                (lambda (n) (and (exact-integer? n) (not (negative? n))))))
+       (define (remove-base path base)
+         (match base
+           (() path)
+           ((head . base)
+            (match path
+              ((head* . path)
+               (and (equal? head head*) (remove-base path base)))
+              (_ #f)))))
+       (case method
+         ((GET HEAD)
+          (match (remove-base (split-and-decode-uri-path (uri-path uri))
+                              *private-path-base*)
+            (()
+             (index))
+            (("photos" (? id? photo))
+             (show-photo (string->number photo)
+                         (assoc-ref (uri-query-params uri) "tag")))
+            (("tags")
+             (tags-index))
+            (("tags" tag)
+             (show-tag tag))
+            (("rolls")
+             (let* ((params (uri-query-params uri))
+                    (before (assoc-ref params "before"))
+                    (after (assoc-ref params "after")))
+               (rolls-index (and before (id? before) (string->number before))
+                            (and after (id? after) (string->number after)))))
+            (("rolls" (? id? roll))
+             (show-roll (string->number roll)))
+            (("rolls" "atom")
+             (rolls-atom))
+            (_
+             (respond `((h1 "Page not found")
+                        (p "Unknown path: " ,(uri-path uri)))
+                      #:status 404))))
+         (else (respond #:status 405)))))
 
 ;; The seemingly useless lambda is to allow for `handle' to be
 ;; redefined at runtime.
